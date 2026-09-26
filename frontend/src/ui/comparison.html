@@ -1,0 +1,91 @@
+<div class="page-head">
+    <div>
+        <!-- <span class="eyebrow">Etapa 2 de 3</span> -->
+        <h1>Defina uma comparação válida</h1>
+        <p>Faça a sua comparação entre dois talhões.</p>
+    </div><span class="chip good">Dados validados</span>
+</div>
+<div class="grid compare-layout">
+    <aside class="card config-card">
+        <h2>Configurar investigação</h2>
+        <!-- <p>A pergunta principal permanece limitada ao vigor vegetal.</p> -->
+        <label class="form-field"><span>Talhão
+                analisado</span><select id="target">
+                <option>Grão 4.0</option>
+                <option>Silagem 4.0</option>
+            </select></label>
+        <div class="versus">VERSUS</div><label class="form-field"><span>Talhão de referência</span><select
+                id="reference">
+                <option>Grão Convencional</option>
+                <option>Silagem Convencional</option>
+            </select></label><label class="form-field"><span>Métrica principal</span><select>
+                <option>Vigor vegetal (NDVI)</option>
+            </select></label><label class="form-field"><span>Período</span><select>
+                <option>Safra completa · 2025/26</option>
+                <option>Pré-plantio</option>
+                <option>Estabelecimento</option>
+                <option>Fase vegetativa</option>
+            </select></label><button class="btn primary" id="runAnalysis">Executar investigação</button>
+        <!-- <p class="config-foot">As análises secundárias serão selecionadas pelo protocolo: condição inicial, população e
+            conformidade de corretivos.</p> -->
+    </aside>
+    <div>
+        <article class="card comparability">
+            <div class="comp-score">
+                <div><small>COMPARABILIDADE DO RECORTE</small><b id="comparisonName">Grão 4.0 × Grão Convencional</b>
+                </div>
+                <div class="score-badge"><strong>4/5</strong><sm
+                    
+                    
+                    all>moderada</sm></div>
+            </div>
+            <div class="criteria">
+                <div class="criterion">
+                    <div class="criterion-top"><b>Mesma cultura</b><span class="chip good">Sim</span></div>
+                    <p>Milho comparado com milho.</p>
+                </div>
+                <div class="criterion">
+                    <div class="criterion-top"><b>Mesma finalidade</b><span class="chip good">Sim</span></div>
+                    <p>Grão comparado com grão.</p>
+                </div>
+                <div class="criterion">
+                    <div class="criterion-top"><b>Datas pareadas</b><span class="chip good">33</span></div>
+                    <p>Observações de NDVI na mesma data.</p>
+                </div>
+                <div class="criterion">
+                    <div class="criterion-top"><b>Condição inicial</b><span class="chip warn">Diferente</span></div>
+                    <p>O gap já existia antes do plantio.</p>
+                </div>
+            </div>
+        </article>
+        <article class="card analysis-list">
+            <div class="card-head">
+                <div><span class="eyebrow">Protocolo de investigação</span>
+                    <h3>Quatro análises serão executadas</h3>
+                </div><span class="chip neutral">Workflow v1</span>
+            </div>
+            <div style="padding:7px 20px 15px">
+                <div class="analysis-row"><span class="analysis-num">01</span>
+                    <div><b>Trajetória de NDVI</b><small>Medir diferença e persistência nas datas pareadas</small></div>
+                    <span class="chip good">Disponível</span>
+                </div>
+                <div class="analysis-row"><span class="analysis-num">02</span>
+                    <div><b>Momento de divergência</b><small>Verificar se o gap surgiu antes ou depois do manejo</small>
+                    </div><span class="chip good">Disponível</span>
+                </div>
+                <div class="analysis-row"><span class="analysis-num">03</span>
+                    <div><b>População de plantas</b><small>Comparar estabelecimento entre os talhões</small></div><span
+                        class="chip good">Disponível</span>
+                </div>
+                <div class="analysis-row"><span class="analysis-num">04</span>
+                    <div><b>Conformidade de aplicação</b><small>Comparar dose realizada com dose configurada</small>
+                    </div><span class="chip good">Disponível</span>
+                </div>
+            </div>
+            <div class="loader" id="loader">
+                <div class="progress"><i></i></div>
+                <p id="loaderText">Comparando as trajetórias de NDVI…</p>
+            </div>
+        </article>
+    </div>
+</div>

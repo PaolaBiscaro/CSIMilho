@@ -1,7 +1,10 @@
+import { createComparisonView } from './ui/comparison.js'
+import { createInvestigationView } from './ui/investigation.js'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/layout.css'
 import './styles/components.css'
+import './styles/prototype.css'
 import { createNavigation } from './ui/navigation.js'
 import { createUploadView } from './ui/upload.js'
 
@@ -45,6 +48,28 @@ description.textContent = 'Reúna os seis arquivos esperados. O FarmLab valida n
 
 intro.append(eyebrow, title, description)
 
-content.append(topbar, intro, createUploadView())
+const dataView = document.createElement('div')
+dataView.append(intro, createUploadView())
+const views = { data: dataView, comparison: createComparisonView(), investigation: createInvestigationView() }
+content.append(topbar, ...Object.values(views))
+content.addEventListener('farmlab:continue', () => { window.location.hash = 'comparison' })
 page.append(createNavigation(), content)
 app.replaceChildren(page)
+
+function showCurrentView() {
+  const requested = window.location.hash.slice(1)
+  const current = Object.hasOwn(views, requested) ? requested : 'data'
+  Object.entries(views).forEach(([id, view]) => { view.hidden = id !== current })
+  page.querySelectorAll('[data-step]').forEach(link => {
+    const active = link.dataset.step === current
+    link.closest('li').classList.toggle('step--current', active)
+    link.closest('li').removeAttribute('aria-current')
+    if (active) link.setAttribute('aria-current', 'page')
+    else link.removeAttribute('aria-current')
+  })
+  phase.textContent = { data: 'Importação', comparison: 'Comparação', investigation: 'Investigação' }[current]
+  window.scrollTo({ top: 0 })
+}
+window.addEventListener('hashchange', showCurrentView)
+showCurrentView()
+

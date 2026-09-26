@@ -44,7 +44,12 @@ export function createNavigation(currentStep = 'data') {
     const description = document.createElement('small')
     description.textContent = step.description
     text.append(label, description)
-    item.append(number, text)
+    const link = document.createElement('a')
+    link.className = 'step__link'
+    link.href = '#' + step.id
+    link.dataset.step = step.id
+    link.append(number, text)
+    item.append(link)
     navigation.append(item)
   }
 
@@ -55,3 +60,4 @@ export function createNavigation(currentStep = 'data') {
   sidebar.append(brand, navigation, note)
   return sidebar
 }
+

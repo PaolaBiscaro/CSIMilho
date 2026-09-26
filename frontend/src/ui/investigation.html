@@ -1,0 +1,143 @@
+<div class="result-hero">
+    <div><span class="eyebrow">Investigação concluída</span>
+        <h1>Por que o Grão 4.0 apresentou vigor inferior ao convencional?</h1>
+        <!-- <p>Resultado calculado por funções analíticas e organizado por regras verificáveis. A camada de linguagem
+            natural é opcional e não altera os valores.</p> -->
+    </div>
+    <div class="result-status"><small>Força da evidência</small><b>Moderada</b><small>4 análises concluídas</small>
+    </div>
+</div>
+<nav class="tabs" aria-label="Conteúdo da investigação"><button class="tab active"
+        data-tab="summary">Síntese</button><button class="tab" data-tab="chart">Evolução do NDVI</button><button
+        class="tab" data-tab="methods">Métodos</button><button class="tab" data-tab="limits">Limitações</button></nav>
+<div class="tab-panel active" id="tab-summary">
+    <article class="card finding"><span class="eyebrow">O que os dados sustentam</span>
+        <h2>O desvio operacional é relevante, mas não explica sozinho o gap</h2>
+        <p>O Grão 4.0 apresentou NDVI médio 0,025 inferior, população 3,6% menor e conformidade de calagem muito abaixo
+            da referência. Entretanto, o talhão já possuía NDVI inferior no pré-plantio.</p>
+        <div class="key-statement"><b>Conclusão segura:</b> existe um problema operacional acionável para auditoria. Os
+            dados não permitem afirmar que a agricultura 4.0 causou menor produtividade.</div>
+        <div class="evidence-list">
+            <div class="evidence"><span class="rank">1</span>
+                <div><b>Calagem abaixo da prescrição</b>
+                    <p>58,0% no Grão 4.0 contra 97,4% no convencional</p>
+                </div><span class="strength"><i style="width:92%"></i></span>
+            </div>
+            <div class="evidence"><span class="rank">2</span>
+                <div><b>População de plantas menor</b>
+                    <p>61,3 mil/ha contra 63,6 mil/ha · diferença de −3,6%</p>
+                </div><span class="strength"><i style="width:63%"></i></span>
+            </div>
+            <div class="evidence"><span class="rank">3</span>
+                <div><b>Gap presente antes do plantio</b>
+                    <p>Condição inicial funciona como explicação alternativa</p>
+                </div><span class="strength"><i style="width:78%"></i></span>
+            </div>
+        </div>
+    </article>
+    <div class="two-cards">
+        <article class="card action-card"><span class="eyebrow">Ação agora</span>
+            <h3>Auditar a execução de corretivos</h3>
+            <p>Verificar por que a dose realizada ficou abaixo da configurada no Grão 4.0 e registrar a ocorrência.</p>
+        </article>
+        <article class="card action-card"><span class="eyebrow">Próxima medição</span>
+            <h3>Capturar produtividade por talhão</h3>
+            <p>O yield identificado é necessário para sair de vigor vegetal e avaliar resultado produtivo.</p>
+        </article>
+    </div>
+</div>
+<div class="tab-panel" id="tab-chart">
+    <article class="card chart-card">
+        <div class="card-head">
+            <div><span class="eyebrow">Datas pareadas</span>
+                <h2>Trajetória do vigor vegetal</h2>
+                <p>A distância deve ser lida como associação, não como efeito causal.</p>
+            </div>
+            <div class="legend"><span style="color:#26705b"><i class="dot"></i>Grão 4.0</span><span
+                    style="color:#a78335"><i class="dot"></i>Convencional</span></div>
+        </div>
+        <div class="chart-area"><svg class="chart" viewBox="0 0 800 300" role="img"
+                aria-label="Comparação simulada da evolução do NDVI">
+                <g>
+                    <line class="gridline" x1="58" y1="42" x2="760" y2="42" />
+                    <line class="gridline" x1="58" y1="98" x2="760" y2="98" />
+                    <line class="gridline" x1="58" y1="154" x2="760" y2="154" />
+                    <line class="gridline" x1="58" y1="210" x2="760" y2="210" />
+                </g>
+                <g class="axis"><text x="22" y="46">0,8</text><text x="22" y="102">0,6</text><text x="22"
+                        y="158">0,4</text><text x="22" y="214">0,2</text><text x="58" y="254">Ago</text><text x="190"
+                        y="254">Out</text><text x="330" y="254">Dez</text><text x="470" y="254">Jan</text><text x="710"
+                        y="254">Fev</text></g>
+                <path class="line" stroke="#26705b"
+                    d="M60 145 C120 164 170 192 230 157 S340 118 392 77 S470 58 510 96 S600 55 662 77 S720 69 758 60" />
+                <path class="line" stroke="#a78335"
+                    d="M60 135 C119 153 172 182 230 146 S338 106 392 69 S472 52 510 83 S600 48 662 67 S720 62 758 54" />
+                <line x1="225" y1="34" x2="225" y2="220" stroke="#c9682e" stroke-dasharray="5 5" />
+                <rect x="151" y="21" width="148" height="25" rx="7" fill="#fff1e6" /><text x="163" y="38" fill="#98501f"
+                    font-size="11" font-weight="700">gap já estava presente</text>
+            </svg></div>
+    </article>
+</div>
+<div class="tab-panel" id="tab-methods">
+    <article class="card">
+        <div class="card-head">
+            <div><span class="eyebrow">Rastreabilidade</span>
+                <h2>Como cada evidência foi produzida</h2>
+                <p>O MVP armazena fonte, função e regra aplicada.</p>
+            </div>
+        </div>
+        <div class="method-table">
+            <div class="method-row head"><span>Resultado</span><span>Função</span><span>Fonte</span></div>
+            <div class="method-row"><b>Gap NDVI = −0,025</b><code>compare_ndvi()</code><span>ndvi_metadata.csv · 33
+                    datas pareadas</span></div>
+            <div class="method-row"><b>População = 61,3
+                    mil/ha</b><code>compare_population()</code><span>LAYER_MAP_PLANTING.csv</span></div>
+            <div class="method-row"><b>Calagem =
+                    58,0%</b><code>application_compliance()</code><span>LAYER_MAP_FERTILIZATION.csv</span></div>
+            <div class="method-row"><b>Condição inicial diferente</b><code>check_initial_condition()</code><span>NDVI
+                    pré-plantio pareado</span></div>
+        </div>
+    </article>
+    <article class="card pad" style="margin-top:18px"><span class="eyebrow">Camada textual opcional</span>
+        <h3 style="margin:6px 0">Gemini gratuito ou relatório por regras</h3>
+        <p style="margin:0;color:var(--muted);font-size:.8rem">Se o modelo estiver disponível, ele apenas transforma as
+            evidências estruturadas em linguagem natural. Se estiver indisponível, o relatório continua sendo gerado
+            pelas regras.</p>
+        <div class="architecture">
+            <div class="arch"><small>01</small><b>Python calcula</b>
+                <p>Valores e comparações</p>
+            </div>
+            <div class="arch"><small>02</small><b>Regras classificam</b>
+                <p>Evidência e limitação</p>
+            </div>
+            <div class="arch"><small>03</small><b>LLM opcional</b>
+                <p>Organiza o texto</p>
+            </div>
+            <div class="arch"><small>04</small><b>Interface mostra</b>
+                <p>Resultado rastreável</p>
+            </div>
+        </div>
+    </article>
+</div>
+<div class="tab-panel" id="tab-limits">
+    <article class="card finding"><span class="eyebrow">Limites da conclusão</span>
+        <h2>O que o sistema impede que seja afirmado</h2>
+        <div class="limit"><b>NDVI não é produtividade</b>
+            <p>O índice representa vigor e cobertura vegetal; não informa diretamente quantos quilos foram produzidos.
+            </p>
+        </div>
+        <div class="limit"><b>Um talhão por estratégia não isola o manejo</b>
+            <p>Local, solo e condição inicial permanecem confundidos com agricultura 4.0 e convencional.</p>
+        </div>
+        <div class="limit"><b>A condição inicial já era diferente</b>
+            <p>Nem toda a diferença observada pode ser associada às operações posteriores.</p>
+        </div>
+        <div class="provenance">
+            <div class="prov-item"><b>Regra aplicada</b><code>if initial_gap = true → prohibit causal conclusion</code>
+            </div>
+            <div class="prov-item"><b>Dado ausente</b><code>reliable_grain_yield_by_field = false</code></div>
+        </div>
+    </article>
+</div>
+<div class="result-actions"><button class="btn" id="newAnalysis">← Nova comparação</button><button class="btn primary"
+        id="downloadReport">Baixar relatório HTML</button></div>
