@@ -48,7 +48,7 @@ O fluxo completo deve ser:
 
 ```text
 abrir aplicação
-→ importar seis CSVs
+→ importar sete CSVs
 → validar e reconhecer talhões
 → escolher comparação e pergunta
 → executar harness com Gemini e ferramentas Python
@@ -201,6 +201,93 @@ abrir aplicação
 
 **Saída:** importação e validação completas, ainda sem análises.
 
+## 3.1 Reajuste obrigatório após a Semana 1 — solo e identidade visual
+
+Este bloco foi criado depois da conclusão de `W1.16`. Ele preserva o histórico entregue e deve ser executado antes de qualquer tarefa `W2.*`. Não marcar as tarefas antigas da Semana 1 como pendentes novamente.
+
+### R1.01 — Atualizar o contrato para sete arquivos `[P0]`
+
+- [x] Adicionar `soil_analysis.csv` à lista permitida e obrigatória do loader.
+- [x] Atualizar os contratos multipart e a resposta de validação.
+- [x] Preservar compatibilidade das seis fontes já implementadas.
+- [x] Atualizar mensagens que ainda mencionem seis arquivos.
+
+**Verificar:** seis arquivos retornam erro claro de ausência de `soil_analysis.csv`; o pacote com sete segue para validação.
+
+### R1.02 — Normalizar `soil_analysis.csv` `[P0]`
+
+- [x] Ler BOM, delimitador `;` e vírgula decimal.
+- [x] Validar `AMOSTRA` única, textura, pH e valores não negativos conforme o `SPEC.md`.
+- [x] Separar colunas sem sufixo como Conjunto 1 e `_2` como Conjunto 2.
+- [x] Emitir avisos de textura, nulos, colunas opcionais e segundo conjunto.
+- [x] Guardar o resultado no store como `soil_samples`, com `scope: dataset`.
+
+**Verificar:** fixture pequena cobre linha válida, amostra duplicada, número inválido, soma de textura fora da tolerância e ausência de Conjunto 2.
+
+### R1.03 — Integrar solo à API e à importação `[P0]`
+
+- [x] Incluir resumo de disponibilidade do solo na resposta de `POST /api/datasets`.
+- [x] Mostrar o sétimo arquivo e seu estado na tela de importação.
+- [x] Não criar `field_id`, coordenada, data ou profundidade para as amostras.
+- [x] Manter arquivos e dados somente na sessão em memória.
+
+**Verificar:** a interface reconhece os sete arquivos e a API informa a quantidade válida de amostras com escopo geral.
+
+### R1.04 — Aplicar a nova identidade visual `[P0]`
+
+- [x] Substituir os tokens principais de cor pelos valores da seção 4.1 do `SPEC.md`.
+- [x] Usar `#895129` na barra lateral, botões principais, item ativo e série principal.
+- [x] Usar `#6b3f22` em hover/foco e tons claros nos fundos de destaque.
+- [x] Preservar cores semânticas de sucesso, aviso e erro.
+- [x] Validar contraste e foco visível.
+
+**Verificar:** revisar 1440 px, 820 px e 390 px; nenhum hexadecimal antigo deve permanecer fora de `tokens.css`, exceto cores semânticas documentadas.
+
+### R1.05 — Revalidar o pacote e os testes `[P0]`
+
+- [x] Atualizar fixtures artificiais para sete arquivos.
+- [x] Executar Pytest, Vitest e build Vite.
+- [x] Importar o pacote real pelo navegador.
+- [x] Confirmar oito amostras válidas no arquivo atual.
+- [x] Registrar nova qualidade, avisos e qualquer regressão.
+
+**Verificar:** regressões das seis fontes antigas continuam passando e o novo fluxo funciona de ponta a ponta até **Continuar**.
+
+### R1.06 — Atualizar documentação e handoff `[P1]`
+
+- [x] Atualizar README com sete arquivos e o novo fluxo manual.
+- [x] Preencher o Registro — Reajuste pós-Semana 1 em `HANDOFF.md`.
+- [x] Registrar branch/commit e comandos reproduzíveis.
+- [x] Parar antes de `W2.01`.
+
+**Saída:** fundação existente ampliada para solo e tema marrom, pronta para a pessoa responsável pela Semana 2.
+
+## 3.2 Reajuste visual e prévias navegáveis — antes da Semana 2
+
+Este bloco foi solicitado após `R1.06` e também deve terminar antes de `W2.01`. Ele altera somente documentação e frontend; não cria schemas de evidência, ferramentas analíticas, endpoints de investigação nem integração Gemini.
+
+### R1.07 — Registrar a direção visual e o limite dos mocks `[P0]`
+
+- [x] Atualizar `HANDOFF.md`, `PIPELINES.md`, `PLANEJAMENTO_CODEX.md`, `PROJETO.md`, `README.md` e `SPEC.md` antes de alterar o frontend.
+- [x] Manter `#895129` como cor primária obrigatória.
+- [x] Registrar o dashboard de cards, cabeçalho horizontal e navegação em pílulas como direção visual.
+- [x] Definir que Comparação e Investigação usam mocks locais, identificados e sem chamadas à API de investigação.
+
+**Verificar:** os seis documentos distinguem claramente prévia visual de funcionalidade analítica concluída.
+
+### R1.08 — Construir shell de dashboard e prévias clicáveis `[P0]`
+
+- [x] Reorganizar a aplicação em moldura de dashboard clara, cabeçalho horizontal e cards responsivos.
+- [x] Manter a tela de Dados funcional dentro da nova composição.
+- [x] Criar prévia clicável de Comparação com selects, período, pergunta e cards mockados.
+- [x] Criar prévia clicável de Investigação com abas internas e conteúdo mockado.
+- [x] Fazer **Continuar** abrir Comparação e o CTA mockado abrir Investigação.
+- [x] Exibir o selo **Prévia · dados demonstrativos** nas duas telas futuras.
+- [x] Testar navegação, 1440 px, 820 px, 390 px, Vitest e build Vite.
+- [x] Parar antes de `W2.01`.
+
+**Saída:** frontend visualmente próximo às referências, navegável nas três áreas e ainda tecnicamente separado das implementações das Semanas 2 a 4.
+
 ## 4. Semana 2 — Ferramentas analíticas determinísticas
 
 ### W2.01 — Criar protocolo comum de evidência `[P0]`
@@ -263,15 +350,36 @@ abrir aplicação
 
 **Verificar:** testar subaplicação, aplicação exata, sobreaplicação e dose configurada zero.
 
-### W2.08 — Criar registry local das ferramentas `[P0]`
+### W2.08 — Implementar `summarize_soil_analysis` `[P0]`
+
+- [ ] Calcular contagem, média, mediana, mínimo, máximo, Q1 e Q3 por métrica.
+- [ ] Separar textura, fertilidade/acidez, bases e micronutrientes.
+- [ ] Expor a unidade como nula quando não documentada.
+- [ ] Não aplicar classificação agronômica de suficiência.
+- [ ] Produzir contrato de distribuição por métrica com mínimo, Q1, mediana, Q3, máximo, contagem válida e fonte.
+- [ ] Produzir contrato de composição de textura somente para amostras cuja soma válida esteja dentro da tolerância.
+
+**Verificar:** testes usam fixture manual e confirmam que nulos não viram zero.
+
+### W2.09 — Implementar `compare_soil_measurement_groups` `[P0]`
+
+- [ ] Parear Conjunto 1 e Conjunto 2 por `AMOSTRA`.
+- [ ] Calcular `Conjunto 2 - Conjunto 1` por amostra e métrica.
+- [ ] Calcular mediana do delta e quantidade de pares válidos.
+- [ ] Incluir a limitação sobre o significado desconhecido de `_2`.
+- [ ] Produzir série pareada própria para barras agrupadas ou pontos conectados, sem misturar unidades.
+
+**Verificar:** o retorno nunca usa os termos profundidade, camada ou horizonte como fato.
+
+### W2.10 — Criar registry local das ferramentas `[P0]`
 
 - [ ] Registrar nome, descrição, schema de parâmetros e função Python.
-- [ ] Expor somente as cinco ferramentas previstas.
+- [ ] Expor somente as sete ferramentas previstas.
 - [ ] Adicionar versão por ferramenta.
 
 **Verificar:** lookup aceita nomes permitidos e rejeita qualquer outro.
 
-### W2.09 — Criar endpoint temporário de diagnóstico `[P1]`
+### W2.11 — Criar endpoint temporário de diagnóstico `[P1]`
 
 - [ ] Criar endpoint disponível apenas em desenvolvimento para executar ferramentas sem Gemini.
 - [ ] Não aceitar caminho de arquivo nem DataFrame no corpo.
@@ -279,7 +387,7 @@ abrir aplicação
 
 **Verificar:** cada ferramenta pode ser testada pelo dataset e IDs selecionados.
 
-### W2.10 — Construir a tela de comparação `[P0]`
+### W2.12 — Construir a tela de comparação `[P0]`
 
 - [ ] Preencher selects com pares retornados pelo backend.
 - [ ] Atualizar pergunta padrão ao trocar os talhões.
@@ -288,17 +396,21 @@ abrir aplicação
 
 **Verificar:** a tela nunca permite Grão × Silagem como comparação executável.
 
-### W2.11 — Construir componente do gráfico NDVI `[P0]`
+### W2.13 — Construir componentes dos gráficos analíticos `[P0]`
 
 - [ ] Criar gráfico Chart.js a partir do contrato de série.
-- [ ] Mostrar alvo e referência com legenda e tooltip.
+- [ ] Mostrar alvo e referência de NDVI com legenda e tooltip.
+- [ ] Criar componentes reutilizáveis para distribuição, comparação pareada e composição de textura do solo.
+- [ ] Incluir seletor de família/métrica, unidade, contagem, fonte, estado vazio e alternativa tabular acessível.
+- [ ] Impedir mapa ou linha temporal de solo enquanto não existirem coordenadas ou datas.
 - [ ] Destruir instância anterior ao renderizar outra análise.
 
-**Verificar:** gráfico funciona com a fixture e não duplica canvas após nova comparação.
+**Verificar:** os gráficos funcionam com fixtures, reproduzem exatamente as evidências, não misturam unidades e não duplicam canvas após nova seleção.
 
-### W2.12 — Validar o baseline do pacote real `[P0]`
+### W2.14 — Validar o baseline do pacote real `[P0]`
 
-- [ ] Executar as quatro análises nos dados da apresentação.
+- [ ] Executar as seis análises nos dados da apresentação.
+- [ ] Confirmar oito amostras de solo válidas no escopo geral.
 - [ ] Comparar com os valores aproximados da especificação.
 - [ ] Investigar qualquer diferença antes de alterar tolerâncias.
 - [ ] Criar teste de regressão com resultados confirmados.
@@ -462,6 +574,9 @@ abrir aplicação
 - [ ] Exibir título, resumo e força da evidência no topo.
 - [ ] Identificar quando o resultado veio do fallback.
 - [ ] Renderizar com `textContent`, nunca `innerHTML` externo.
+- [ ] Criar a área **Visão de solo** logo após o resumo, com métricas descritivas, Conjunto 1 × Conjunto 2 e aviso de escopo geral.
+- [ ] Tratar a visão de solo como seção prioritária do dashboard, com cards de qualidade e acesso às visualizações detalhadas.
+- [ ] Não apresentar amostras como pertencentes aos talhões selecionados.
 
 **Verificar:** caracteres especiais e texto malicioso aparecem como texto, não como HTML.
 
@@ -481,13 +596,16 @@ abrir aplicação
 
 **Verificar:** valores nulos aparecem como indisponíveis, nunca como zero.
 
-### W4.06 — Integrar o gráfico real `[P0]`
+### W4.06 — Integrar os gráficos reais `[P0]`
 
 - [ ] Alimentar Chart.js com `chart_data` da resposta.
 - [ ] Formatar datas e valores.
 - [ ] Exibir estado vazio quando a ferramenta NDVI não foi executada.
+- [ ] Integrar distribuição, comparação pareada e composição de textura do solo aos contratos reais.
+- [ ] Exibir tooltip, unidade, amostras válidas, fonte e tabela acessível em cada visualização.
+- [ ] Manter mapa, tendência temporal e perfil de profundidade indisponíveis para solo enquanto faltarem os campos necessários.
 
-**Verificar:** gráfico usa os mesmos pontos presentes na evidência NDVI.
+**Verificar:** cada gráfico usa exatamente os pontos e resumos presentes nas evidências correspondentes, sem cálculo analítico paralelo no frontend.
 
 ### W4.07 — Criar abas de limitações e métodos `[P0]`
 
@@ -546,9 +664,9 @@ abrir aplicação
 ### W4.13 — Executar teste ponta a ponta `[P0]`
 
 - [ ] iniciar a aplicação do zero;
-- [ ] importar os seis arquivos;
+- [ ] importar os sete arquivos;
 - [ ] executar Grão 4.0 × Grão Convencional;
-- [ ] conferir visão geral, evidências, gráfico e limitações;
+- [ ] conferir visão geral, visão de solo, evidências, gráfico e limitações;
 - [ ] baixar relatório;
 - [ ] executar nova comparação sem reenviar arquivos.
 
@@ -578,8 +696,8 @@ abrir aplicação
 Não cortar:
 
 - importação real;
-- validação dos seis arquivos;
-- quatro análises;
+- validação dos sete arquivos;
+- seis análises;
 - Gemini via harness;
 - visão geral escrita;
 - evidências e limitações;
@@ -640,3 +758,13 @@ Adicionar uma linha por tarefa concluída.
 | 2026-09-19 | W1.16 (bloqueada) | Suítes finais e importação manual executadas sob a revisão anterior do SPEC; pacote real expôs ordens compartilhadas e o alias `Convecional`. | Pytest: 42 passaram; Vitest: 4 passaram; Vite build passou; pacote real retornou 422 sob o contrato anterior. | Registro histórico superado pela revisão do SPEC e pela execução de 2026-09-23. |
 | 2026-09-23 | W1.08–W1.15 (revisão de contrato) | Implementação alinhada ao SPEC revisado: sexto CSV, `fieldGeom`, alias de nome, catálogo de ordens, candidatos compartilhados e vínculo espacial das operações. | Pytest: 49 passaram; Vitest: 4 passaram; Vite build passou; casos obrigatórios de vínculo espacial cobertos por fixtures artificiais. | Fórmulas analíticas permanecem fora do escopo até W2. |
 | 2026-09-23 | W1.16 | Pacote real validado pela API e pelo navegador; quatro talhões e dois pares (Grão e Silagem) confirmados, sem ambiguidade espacial. | Importação real: 201/`ready_with_warnings`, qualidade 60, 23.738 linhas atribuídas, 9.599 não atribuídas, 30 geometrias inválidas e 0 ambíguas; botão Continuar habilitado. | Nenhuma pendência impeditiva da Semana 1. |
+| 2026-10-07 | Revisão de escopo | Documentação atualizada para exigir `soil_analysis.csv`, criar `R1.01`–`R1.06`, acrescentar duas ferramentas de solo e adotar `#895129` como cor principal. | Revisão documental; implementação ainda não executada. | Solo permanece no escopo geral do dataset; `_2` significa somente Conjunto 2 até haver metadado. |
+| 2026-10-07 | R1.01 | Contrato de upload ampliado para sete arquivos, com `soil_analysis.csv` obrigatório e resumo de solo na resposta. | Testes de pacote completo e ausência do sétimo arquivo; regressão da API. | As seis fontes anteriores foram preservadas. |
+| 2026-10-07 | R1.02 | Normalizador de solo com BOM, ponto e vírgula, vírgula decimal, regras de domínio, grupos e avisos; store defensivo para os dicionários normalizados. | Pytest cobre valores válidos, duplicidade, inválidos sem zero, textura fora da tolerância, opcionais e ausência de Conjunto 2. | Amostras usam somente `sample_id`, `scope`, `group_1` e `group_2`; não há vínculo com talhão. |
+| 2026-10-07 | R1.03 | API, sessão e importação exibem disponibilidade, grupos e quantidade válida de amostras. | Pacote real via API e navegador: 8 amostras, sete arquivos válidos e botão Continuar habilitado. | O solo permanece apenas em memória e no escopo geral do dataset. |
+| 2026-10-07 | R1.04 | Identidade marrom aplicada por tokens, com `#895129` como primária e estados semânticos preservados. | Layouts 1440/820/390 sem overflow; contrastes principais entre 6,42:1 e 14,16:1; build Vite. | Hexadecimais de interface ficaram centralizados em `tokens.css`. |
+| 2026-10-07 | R1.05 | Fixtures e regressões atualizadas para sete arquivos; pacote acadêmico real revalidado. | Pytest: 56 passaram; Vitest: 4 passaram; Vite build passou; real: 201/`ready_with_warnings`, qualidade 60, 15 avisos, 8 amostras. | A única variação do baseline é o novo aviso agregado sobre unidades/faixas de solo não documentadas; vínculos operacionais permanecem iguais. |
+| 2026-10-07 | R1.06 | README, checkboxes, diário e handoff atualizados; execução encerrada antes de W2.01. | Branch `feat/heloisa`; working tree sobre `5bc3e70`; comandos reproduzíveis registrados no handoff. | Nenhum commit foi criado automaticamente e nenhuma tarefa W2 foi iniciada. |
+| 2026-10-07 | R1.07 | Os seis documentos-base foram atualizados antes do frontend com a direção visual, o contrato das prévias e os limites dos mocks. | Revisão cruzada de HANDOFF, PIPELINES, PLANEJAMENTO, PROJETO, README e SPEC. | Dados demonstrativos permanecem isolados do backend e não contam como evidência. |
+| 2026-10-07 | R1.08 | Shell de dashboard responsivo e prévias clicáveis de Comparação e Investigação concluídos, mantendo `#895129`. | Pytest: 56 passaram; Vitest: 7 passaram; Vite build passou; Chrome validado em 1440/820/390, sem overflow horizontal. | W2.01 não foi iniciado; os mocks devem ser substituídos apenas por contratos analíticos validados. |
+| 2026-10-07 | Direção futura de gráficos | Documentos atualizados para priorizar um dashboard analítico de solo mais rico nas Semanas 2 e 4, mantendo a prévia atual como demonstração simples. | Revisão cruzada de SPEC, PROJETO, PIPELINES, PLANEJAMENTO, HANDOFF e README; nenhuma implementação executada. | Os gráficos futuros dependem das evidências reais e não podem inventar mapa, tempo, profundidade, unidade ou classificação agronômica. |

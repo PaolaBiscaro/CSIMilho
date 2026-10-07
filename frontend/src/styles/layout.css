@@ -1,82 +1,177 @@
 #app {
   min-height: 100vh;
+  padding: clamp(0.7rem, 2vw, 2rem);
 }
 
 .app-shell {
-  display: grid;
-  min-height: 100vh;
-  grid-template-columns: 18rem minmax(0, 1fr);
+  width: min(100%, 96rem);
+  min-height: calc(100vh - clamp(1.4rem, 4vw, 4rem));
+  margin: 0 auto;
+  padding: var(--space-3);
+  overflow: hidden;
+  border: 1px solid rgb(79 45 24 / 9%);
+  border-radius: 2rem;
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
 }
 
-.sidebar {
-  position: sticky;
-  top: 0;
-  display: flex;
-  height: 100vh;
-  flex-direction: column;
-  padding: var(--space-6);
-  background:
-    radial-gradient(circle at 12% 8%, rgb(98 151 108 / 26%), transparent 30%),
-    var(--color-forest-950);
-  color: var(--color-white);
+.header-slot {
+  position: relative;
+  z-index: 10;
+}
+
+.app-header {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) auto minmax(10rem, 1fr);
+  gap: var(--space-4);
+  align-items: center;
+  min-height: 4.75rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgb(79 45 24 / 8%);
+  border-radius: 1.55rem;
+  background: var(--paper);
+  box-shadow: var(--shadow-card);
 }
 
 .content {
-  width: min(100%, 90rem);
-  padding: 0 clamp(1.25rem, 5vw, 5rem) var(--space-7);
+  min-width: 0;
+  padding: clamp(1.5rem, 3vw, 3rem);
 }
 
-.topbar {
+.page-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.page-view > *,
+.result-panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.page-heading {
   display: flex;
-  align-items: center;
+  gap: var(--space-6);
+  align-items: end;
   justify-content: space-between;
-  min-height: 5rem;
-  border-bottom: 1px solid var(--color-sand-200);
-  color: var(--color-ink-500);
-  font-size: 0.83rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  padding: var(--space-4) 0 var(--space-2);
 }
 
-.page-intro {
-  padding: clamp(3rem, 8vw, 7rem) 0 clamp(2rem, 5vw, 4rem);
+.page-heading > :first-child {
+  max-width: 52rem;
 }
 
-.page-intro__description {
-  max-width: 45rem;
+.page-heading__description {
+  max-width: 48rem;
   margin-bottom: 0;
-  color: var(--color-ink-700);
-  font-size: clamp(1rem, 1.6vw, 1.2rem);
+  color: var(--text-muted);
+  font-size: clamp(0.95rem, 1.4vw, 1.08rem);
 }
 
-@media (max-width: 900px) {
-  .app-shell {
-    grid-template-columns: 1fr;
+.heading-context,
+.score-orbit {
+  flex: none;
+}
+
+.metric-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.metric-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric-grid--four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.comparison-grid {
+  grid-template-columns: minmax(0, 1.75fr) minmax(17rem, 0.75fr);
+  align-items: start;
+}
+
+.result-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(16rem, 0.65fr);
+  gap: var(--space-4);
+}
+
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+@media (max-width: 1050px) {
+  .app-header {
+    grid-template-columns: auto 1fr auto;
   }
 
-  .sidebar {
-    position: static;
-    height: auto;
-    padding: 1.25rem clamp(1.25rem, 4vw, 2.5rem);
+  .metric-grid--four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .comparison-grid,
+  .result-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  #app {
+    padding: var(--space-2);
+  }
+
+  .app-shell {
+    min-height: calc(100vh - 1rem);
+    padding: var(--space-2);
+    border-radius: 1.35rem;
+  }
+
+  .app-header {
+    grid-template-columns: 1fr auto;
+    gap: var(--space-3);
+    border-radius: 1rem;
+  }
+
+  .app-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 
   .content {
-    padding-right: clamp(1.25rem, 4vw, 2.5rem);
-    padding-left: clamp(1.25rem, 4vw, 2.5rem);
+    padding: 1.25rem 0.65rem 2rem;
+  }
+
+  .page-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .metric-grid--three,
+  .evidence-grid {
+    grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 520px) {
-  .phase-label,
-  .sidebar__note {
+@media (max-width: 480px) {
+  .metric-grid--four {
+    grid-template-columns: 1fr;
+  }
+
+  .header-session span:last-child,
+  .brand__text small {
     display: none;
-  }
-
-  .topbar {
-    min-height: 4rem;
-  }
-
-  .page-intro {
-    padding-top: var(--space-7);
   }
 }

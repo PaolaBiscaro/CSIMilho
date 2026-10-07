@@ -13,6 +13,7 @@ from app.data.contracts import (
     FileStatus,
     FileValidation,
     OperationLinkage,
+    SoilAvailability,
     ValidPair,
 )
 
@@ -42,6 +43,7 @@ def test_validation_response_accepts_normalized_objects() -> None:
             ValidPair(target_field_id=field.field_id, reference_field_id="103145", purpose=FieldPurpose.GRAIN)
         ],
         available_operations=["CALAGEM"],
+        soil=SoilAvailability(sample_count=2, measurement_groups=["group_1", "group_2"]),
         operation_linkage=OperationLinkage(assigned_rows=1),
         warnings=[],
         errors=[],
@@ -49,6 +51,7 @@ def test_validation_response_accepts_normalized_objects() -> None:
 
     assert response.fields[0].centroid.longitude == -49.98
     assert response.status is DatasetStatus.READY
+    assert response.soil.scope == "dataset"
 
 
 def test_critical_contracts_reject_extra_fields() -> None:

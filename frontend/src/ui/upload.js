@@ -8,6 +8,7 @@ export const EXPECTED_FILES = Object.freeze([
   'LAYER_MAP_PLANTING.csv',
   'LAYER_MAP_FERTILIZATION.csv',
   'service_orders_fields.csv',
+  'soil_analysis.csv',
 ])
 
 export function summarizeSelection(files) {
@@ -46,7 +47,7 @@ export function createUploadView() {
   const header = element('div', 'panel-heading')
   header.append(
     element('span', 'badge', 'Pacote obrigatório'),
-    element('h2', '', 'Selecione os seis CSVs'),
+    element('h2', '', 'Selecione os sete CSVs'),
     element('p', 'panel-heading__description', 'Você pode escolher todos de uma vez ou adicionar os arquivos em etapas.'),
   )
 
@@ -87,6 +88,7 @@ export function createUploadView() {
   const quality = element('strong', 'quality-score')
   resultHeader.append(resultTitle, quality)
   const fieldList = element('ul', 'field-list')
+  const soilSummary = element('div', 'soil-summary')
   const issueContainer = element('div', 'issue-groups')
   const continueButton = element('button', 'button button--primary continue-button', 'Continuar')
   continueButton.type = 'button'
@@ -94,7 +96,7 @@ export function createUploadView() {
   continueButton.addEventListener('click', () => {
     section.dispatchEvent(new CustomEvent('farmlab:continue', { bubbles: true }))
   })
-  resultSection.append(resultHeader, fieldList, issueContainer, continueButton)
+  resultSection.append(resultHeader, soilSummary, fieldList, issueContainer, continueButton)
 
   function currentStatuses() {
     if (serverFiles) return serverFiles.map(({ name, status }) => ({ name, status }))
@@ -117,6 +119,19 @@ export function createUploadView() {
     quality.textContent = `${payload.quality_score}/100`
     quality.setAttribute('aria-label', `Qualidade do pacote: ${payload.quality_score} de 100`)
     fieldList.replaceChildren()
+    const soil = payload.soil ?? { sample_count: 0, scope: 'dataset', measurement_groups: [] }
+    const groupLabels = soil.measurement_groups.map((group) => (
+      group === 'group_1' ? 'Conjunto 1' : group === 'group_2' ? 'Conjunto 2' : group
+    ))
+    soilSummary.replaceChildren(
+      element('strong', '', 'Solo no contexto geral'),
+      element(
+        'span',
+        '',
+        `${soil.sample_count} amostra(s) válida(s) · ${groupLabels.join(' e ') || 'nenhum conjunto disponível'}`,
+      ),
+      element('small', '', 'As amostras não são associadas a talhões, datas ou profundidades.'),
+    )
     for (const field of payload.fields ?? []) {
       const item = element('li', 'field-card')
       item.append(
@@ -142,7 +157,7 @@ export function createUploadView() {
     statusMessage.textContent = summary.unexpected.length
       ? `Arquivo não esperado: ${summary.unexpected.join(', ')}.`
       : summary.canSubmit
-        ? 'Os seis arquivos foram recebidos e podem ser validados.'
+        ? 'Os sete arquivos foram recebidos e podem ser validados.'
         : `${selectedFiles.length} arquivo(s) selecionado(s). Complete o pacote.`
     renderFiles()
   })

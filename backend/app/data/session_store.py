@@ -22,6 +22,8 @@ class NormalizedDataset:
     service_order_operations: dict[str, str]
     service_order_mapping: dict[str, set[str]]
     season_links: list[SeasonFieldLink]
+    soil_samples: pd.DataFrame
+    soil_metadata: dict[str, Any]
     dataset_metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -39,7 +41,7 @@ class SessionStore:
     def save(self, dataset: NormalizedDataset, dataset_id: UUID | None = None) -> UUID:
         identifier = dataset_id or uuid4()
         with self._lock:
-            self._datasets[identifier] = deepcopy(dataset)
+            self._datasets[identifier] = _copy_dataset(dataset)
         return identifier
 
     def get(self, dataset_id: UUID | str) -> NormalizedDataset:
@@ -52,7 +54,7 @@ class SessionStore:
             dataset = self._datasets.get(identifier)
             if dataset is None:
                 raise DatasetNotFoundError(identifier)
-            return deepcopy(dataset)
+            return _copy_dataset(dataset)
 
     def clear(self) -> None:
         with self._lock:
@@ -60,3 +62,10 @@ class SessionStore:
 
 
 dataset_store = SessionStore()
+
+
+def _copy_dataset(dataset: NormalizedDataset) -> NormalizedDataset:
+    copied = deepcopy(dataset)
+    # pandas preserves references stored inside object cells even in a deep DataFrame copy.
+    copied.soil_samples = copied.soil_samples.map(deepcopy)
+    return copied

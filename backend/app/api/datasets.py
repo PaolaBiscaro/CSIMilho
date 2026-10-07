@@ -14,6 +14,7 @@ from app.data.contracts import (
     FileStatus,
     FileValidation,
     OperationLinkage,
+    SoilAvailability,
     ValidPair,
     ValidationIssue,
 )
@@ -27,7 +28,13 @@ from app.data.loader import (
     load_csv,
     validate_package_files,
 )
-from app.data.normalizer import normalize_fertilization, normalize_fields, normalize_ndvi, normalize_planting
+from app.data.normalizer import (
+    normalize_fertilization,
+    normalize_fields,
+    normalize_ndvi,
+    normalize_planting,
+    normalize_soil,
+)
 from app.data.session_store import NormalizedDataset, dataset_store
 
 router = APIRouter(prefix="/api", tags=["datasets"])
@@ -125,6 +132,14 @@ def _process_package(package: dict[str, bytes]) -> DatasetValidationResponse:
     warnings.extend(spatial_result.warnings)
     errors.extend(spatial_result.errors)
 
+    soil_result = normalize_soil(loaded["soil_analysis.csv"])
+    warnings.extend(soil_result.warnings)
+    errors.extend(soil_result.errors)
+    soil = SoilAvailability(
+        sample_count=len(soil_result.frame),
+        measurement_groups=soil_result.measurement_groups,
+    )
+
     valid_pairs = _build_available_pairs(
         field_result.fields,
         spatial_result.frame,
@@ -162,6 +177,7 @@ def _process_package(package: dict[str, bytes]) -> DatasetValidationResponse:
             fields=field_result.fields,
             valid_pairs=valid_pairs,
             available_operations=available_operations,
+            soil=soil,
             operation_linkage=operation_linkage,
             warnings=warnings,
             errors=errors,
@@ -176,6 +192,8 @@ def _process_package(package: dict[str, bytes]) -> DatasetValidationResponse:
         service_order_operations=service_order_catalog.operation_by_id,
         service_order_mapping=service_order_result.mapping,
         season_links=spatial_result.links,
+        soil_samples=soil_result.frame,
+        soil_metadata=soil.model_dump(mode="json"),
         dataset_metadata={
             "source_files": list(EXPECTED_FILE_NAMES),
             "file_validation": [item.model_dump(mode="json") for item in file_results],
@@ -195,6 +213,7 @@ def _process_package(package: dict[str, bytes]) -> DatasetValidationResponse:
         fields=field_result.fields,
         valid_pairs=valid_pairs,
         available_operations=available_operations,
+        soil=soil,
         operation_linkage=operation_linkage,
         warnings=warnings,
         errors=[],
@@ -277,6 +296,7 @@ def _validation_response(
     fields=None,
     valid_pairs=None,
     available_operations=None,
+    soil=None,
     operation_linkage=None,
     warnings=None,
     errors=None,
@@ -291,6 +311,7 @@ def _validation_response(
         fields=fields or [],
         valid_pairs=valid_pairs or [],
         available_operations=available_operations or [],
+        soil=soil or SoilAvailability(),
         operation_linkage=operation_linkage or OperationLinkage(),
         warnings=warnings,
         errors=errors,

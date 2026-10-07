@@ -8,6 +8,8 @@ describe('upload selection', () => {
 
     expect(summary.canSubmit).toBe(true)
     expect(summary.statuses.every((item) => item.status === 'received')).toBe(true)
+    expect(EXPECTED_FILES).toHaveLength(7)
+    expect(EXPECTED_FILES).toContain('soil_analysis.csv')
   })
 
   it('rejects duplicates and unexpected files', () => {

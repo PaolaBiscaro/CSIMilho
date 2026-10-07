@@ -43,6 +43,16 @@ NDVI_REQUIRED_COLUMNS = {
     "filename", "season_id", "crs", "bounds_left", "bounds_bottom",
     "bounds_right", "bounds_top", "b1_valid_pixels", "b1_mean",
 }
+SOIL_FILE = "soil_analysis.csv"
+SOIL_TEXTURE_METRICS = ("ARGILA", "SILTE", "AREIA")
+SOIL_FERTILITY_METRICS = (
+    "MO", "CTC", "CTCE", "PHCACL2", "CA", "SATCA", "MG", "SATMG", "K",
+    "SATK", "P", "SATB", "AL", "SATAL", "S", "HAL", "SB",
+)
+SOIL_MICRONUTRIENT_METRICS = ("B", "ZN", "MN", "CU", "FE")
+SOIL_REQUIRED_COLUMNS = {
+    "AMOSTRA", *SOIL_TEXTURE_METRICS, *SOIL_FERTILITY_METRICS,
+}
 
 
 @dataclass
@@ -65,6 +75,17 @@ class OperationNormalizationResult:
 @dataclass
 class NdviNormalizationResult:
     frame: pd.DataFrame
+    discarded_rows: int = 0
+    warnings: list[ValidationIssue] = field(default_factory=list)
+    errors: list[ValidationIssue] = field(default_factory=list)
+
+
+@dataclass
+class SoilNormalizationResult:
+    frame: pd.DataFrame = field(default_factory=lambda: pd.DataFrame(
+        columns=["sample_id", "scope", "group_1", "group_2"]
+    ))
+    measurement_groups: list[str] = field(default_factory=list)
     discarded_rows: int = 0
     warnings: list[ValidationIssue] = field(default_factory=list)
     errors: list[ValidationIssue] = field(default_factory=list)
@@ -377,6 +398,137 @@ def normalize_ndvi(frame: pd.DataFrame) -> NdviNormalizationResult:
             file=NDVI_FILE,
         ))
     return result
+
+
+def normalize_soil(frame: pd.DataFrame) -> SoilNormalizationResult:
+    """Normalize soil samples without inventing a relationship to individual fields."""
+    result = SoilNormalizationResult()
+    if _report_missing_columns(frame, SOIL_REQUIRED_COLUMNS, SOIL_FILE, result.errors):
+        return result
+
+    metric_columns = [column for column in frame.columns if column != "AMOSTRA"]
+    group_1_columns = [column for column in metric_columns if not column.endswith("_2")]
+    group_2_columns = [column for column in metric_columns if column.endswith("_2")]
+    result.measurement_groups = ["group_1"] + (["group_2"] if group_2_columns else [])
+
+    missing_micronutrients = sorted(set(SOIL_MICRONUTRIENT_METRICS) - set(frame.columns))
+    if missing_micronutrients:
+        result.warnings.append(ValidationIssue(
+            code="missing_soil_micronutrients",
+            message=("Micronutrientes opcionais ausentes em soil_analysis.csv: "
+                     f"{', '.join(missing_micronutrients)}."),
+            file=SOIL_FILE,
+        ))
+    if not group_2_columns:
+        result.warnings.append(ValidationIssue(
+            code="missing_soil_group_2",
+            message="O Conjunto 2 não está disponível em soil_analysis.csv.",
+            file=SOIL_FILE,
+        ))
+
+    records: list[dict[str, Any]] = []
+    seen_samples: set[str] = set()
+    invalid_value_count = 0
+    for index, row in frame.iterrows():
+        row_number = int(index) + 2 if isinstance(index, int) else 2
+        try:
+            sample_id = _required_text(row["AMOSTRA"], "AMOSTRA")
+        except ValueError as exc:
+            result.errors.append(ValidationIssue(
+                code="invalid_soil_sample",
+                message=f"Amostra de solo inválida na linha {row_number}: {exc}.",
+                file=SOIL_FILE,
+                row=row_number,
+            ))
+            result.discarded_rows += 1
+            continue
+        if sample_id in seen_samples:
+            result.errors.append(ValidationIssue(
+                code="duplicate_soil_sample",
+                message=f"AMOSTRA duplicada em soil_analysis.csv: {sample_id}.",
+                file=SOIL_FILE,
+                row=row_number,
+            ))
+            result.discarded_rows += 1
+            continue
+        seen_samples.add(sample_id)
+
+        group_1, invalid_group_1 = _normalize_soil_metrics(row, group_1_columns)
+        group_2, invalid_group_2 = _normalize_soil_metrics(row, group_2_columns)
+        invalid_value_count += invalid_group_1 + invalid_group_2
+        if not any(value is not None for value in group_1.values()):
+            result.discarded_rows += 1
+            continue
+
+        texture_values = [group_1.get(metric) for metric in SOIL_TEXTURE_METRICS]
+        if all(value is not None for value in texture_values):
+            texture_sum = sum(texture_values)
+            if not 95 <= texture_sum <= 105:
+                result.warnings.append(ValidationIssue(
+                    code="soil_texture_sum_out_of_range",
+                    message=(f"A soma de ARGILA, SILTE e AREIA da amostra {sample_id} "
+                             f"é {texture_sum:.2f}; esperado entre 95 e 105."),
+                    file=SOIL_FILE,
+                    row=row_number,
+                ))
+
+        records.append({
+            "sample_id": sample_id,
+            "scope": "dataset",
+            "group_1": group_1,
+            "group_2": group_2,
+        })
+
+    result.frame = pd.DataFrame.from_records(
+        records, columns=["sample_id", "scope", "group_1", "group_2"]
+    )
+    if invalid_value_count:
+        result.warnings.append(ValidationIssue(
+            code="invalid_soil_values",
+            message=(f"{invalid_value_count} valor(es) ausente(s) ou inválido(s) em "
+                     "soil_analysis.csv foram descartados, sem substituição por zero."),
+            file=SOIL_FILE,
+        ))
+    if not result.frame.empty:
+        result.warnings.append(ValidationIssue(
+            code="soil_units_undocumented",
+            message=("As unidades e faixas agronômicas de soil_analysis.csv não estão "
+                     "documentadas; os valores serão apresentados sem classificação."),
+            file=SOIL_FILE,
+        ))
+    else:
+        result.errors.append(ValidationIssue(
+            code="no_valid_soil_samples",
+            message="Nenhuma amostra de solo válida foi reconhecida.",
+            file=SOIL_FILE,
+        ))
+    return result
+
+
+def _normalize_soil_metrics(
+    row: pd.Series, columns: list[str],
+) -> tuple[dict[str, float | None], int]:
+    values: dict[str, float | None] = {}
+    invalid_count = 0
+    for column in columns:
+        metric = column[:-2] if column.endswith("_2") else column
+        raw_value = row[column]
+        try:
+            if pd.isna(raw_value) or not str(raw_value).strip():
+                raise ValueError(f"{column} está vazio")
+            normalized = str(raw_value).strip().replace(",", ".")
+            value = _finite_number(normalized, column)
+            if metric in SOIL_TEXTURE_METRICS and not 0 <= value <= 100:
+                raise ValueError(f"{column} deve estar entre 0 e 100")
+            if metric == "PHCACL2" and not 0 <= value <= 14:
+                raise ValueError(f"{column} deve estar entre 0 e 14")
+            if metric not in SOIL_TEXTURE_METRICS and metric != "PHCACL2" and value < 0:
+                raise ValueError(f"{column} não pode ser negativo")
+        except (TypeError, ValueError):
+            value = None
+            invalid_count += 1
+        values[metric] = value
+    return values, invalid_count
 
 
 def _required_text(value: Any, column: str) -> str:

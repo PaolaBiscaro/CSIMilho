@@ -3,7 +3,7 @@
 ## 1. Status e prioridade
 
 - **Produto:** FarmLab Investigator
-- **Versão da especificação:** 1.0
+- **Versão da especificação:** 1.3
 - **Tipo:** MVP acadêmico para demonstração ao vivo
 - **Prazo:** quatro semanas
 - **Prioridade:** fluxo completo e rastreável antes de amplitude funcional
@@ -12,7 +12,7 @@ Esta especificação é normativa. O Codex deve implementar apenas o que está d
 
 ## 2. Objetivo técnico
 
-Construir uma aplicação web com frontend em HTML, CSS e JavaScript e backend em Python/FastAPI. A aplicação recebe seis CSVs, executa análises determinísticas por meio de ferramentas tipadas e usa a API do Gemini, controlada por um harness, para gerar uma investigação estruturada.
+Construir uma aplicação web com frontend em HTML, CSS e JavaScript e backend em Python/FastAPI. A aplicação recebe sete CSVs, com foco principal na análise descritiva do solo, executa análises determinísticas por meio de ferramentas tipadas e usa a API do Gemini, controlada por um harness, para gerar uma investigação estruturada.
 
 ## 3. Princípios obrigatórios
 
@@ -25,7 +25,8 @@ Construir uma aplicação web com frontend em HTML, CSS e JavaScript e backend e
 7. **Falha controlada:** indisponibilidade do Gemini gera fallback, não tela quebrada.
 8. **Sem persistência:** arquivos e resultados existem apenas durante a sessão local.
 9. **Sem segredo no frontend:** a chave da API permanece no backend.
-10. **Escopo fechado:** somente as quatro análises definidas entram na primeira versão.
+10. **Escopo fechado:** somente as seis análises definidas entram na primeira versão.
+11. **Solo sem vínculo inventado:** enquanto `soil_analysis.csv` não possuir chave de talhão, coordenada, data ou profundidade documentada, seus resultados pertencem ao conjunto de dados como um todo e não a um talhão específico.
 
 ## 4. Stack fixada
 
@@ -37,6 +38,45 @@ Construir uma aplicação web com frontend em HTML, CSS e JavaScript e backend e
 - Vite para ambiente de desenvolvimento e build;
 - Chart.js para o gráfico de NDVI;
 - Vitest para funções puras do frontend, quando aplicável.
+
+#### Identidade visual obrigatória
+
+A cor principal vem da referência visual fornecida e deve ser usada por tokens CSS, nunca repetida de forma dispersa nos componentes:
+
+```css
+:root {
+  --brown-900: #4f2d18;
+  --brown-800: #6b3f22;
+  --brown-700: #895129;
+  --brown-500: #b5784d;
+  --brown-200: #e5cdbb;
+  --brown-100: #f1e4da;
+  --brown-50: #f8f2ee;
+  --canvas: #f7f3ef;
+  --paper: #ffffff;
+  --ink: #2d2119;
+}
+```
+
+- `#895129` é a cor primária exata para barra lateral, botões principais, item ativo e série principal dos gráficos;
+- `#6b3f22` é o estado hover/foco escuro;
+- `#f1e4da` e `#f8f2ee` são fundos de destaque;
+- verde, laranja e vermelho continuam reservados para sucesso, aviso e erro;
+- texto e controles devem manter contraste acessível.
+
+#### Direção de layout baseada nas referências visuais
+
+A interface deve adotar a linguagem de dashboard das referências fornecidas em 2026-10-07, sem copiar marca, conteúdo financeiro, fotografias ou ícones proprietários:
+
+- aplicação centralizada sobre canvas claro, com moldura ampla e cantos arredondados;
+- cabeçalho horizontal branco com marca, navegação em formato de pílula e estado ativo evidente;
+- conteúdo organizado em grade de cards brancos, compactos, com hierarquia por tamanho e pouco ruído visual;
+- indicadores principais grandes, metadados discretos, bordas suaves e sombras leves;
+- visualizações analíticas integradas aos cards, com variedade proporcional ao dado — linhas, barras, distribuições, composição e comparações pareadas — usando a paleta marrom do FarmLab;
+- responsividade sem rolagem horizontal em 1440 px, 820 px e 390 px;
+- `#895129` permanece a cor primária obrigatória para navegação ativa, botões e séries principais.
+
+As referências orientam composição, densidade e hierarquia. Elas não autorizam alterar a identidade marrom escolhida nem introduzir funcionalidades financeiras.
 
 ### 4.2 Backend
 
@@ -80,12 +120,16 @@ farmlab-investigator/
 │   │   ├── main.js
 │   │   ├── api.js
 │   │   ├── state.js
+│   │   ├── mocks/
+│   │   │   └── preview-data.js
 │   │   ├── ui/
 │   │   │   ├── navigation.js
 │   │   │   ├── upload.js
 │   │   │   ├── comparison.js
+│   │   │   ├── comparison-preview.js
 │   │   │   ├── progress.js
-│   │   │   └── results.js
+│   │   │   ├── results.js
+│   │   │   └── investigation-preview.js
 │   │   ├── charts/
 │   │   │   └── ndvi-chart.js
 │   │   └── styles/
@@ -113,7 +157,8 @@ farmlab-investigator/
 │   │   │   ├── comparability.py
 │   │   │   ├── ndvi.py
 │   │   │   ├── population.py
-│   │   │   └── application.py
+│   │   │   ├── application.py
+│   │   │   └── soil.py
 │   │   ├── harness/
 │   │   │   ├── orchestrator.py
 │   │   │   ├── prompts.py
@@ -187,11 +232,13 @@ ERROR
 
 ### 7.3 Telas
 
+Enquanto as etapas analíticas e o harness ainda não estiverem implementados, a navegação pode abrir prévias visuais das telas 2 e 3. Essas prévias devem ser explicitamente rotuladas como **dados demonstrativos**, usar apenas objetos locais de `frontend/src/mocks/` e nunca chamar endpoints de investigação. Navegar pela prévia não altera o estado real do dataset nem marca tarefas `W2.*` ou `W3.*` como concluídas.
+
 #### Tela 1 — Dados
 
 Deve conter:
 
-- área para selecionar os seis CSVs;
+- área para selecionar os sete CSVs;
 - lista de arquivos esperados;
 - status individual: ausente, recebido, válido ou inválido;
 - resumo da validação;
@@ -211,10 +258,17 @@ Deve conter:
 - análises disponíveis;
 - botão **Executar investigação**.
 
+Na prévia visual anterior à Semana 2:
+
+- os selects, período, pergunta e cards de comparabilidade devem ser clicáveis;
+- as opções vêm de dados mockados e não representam cálculo real;
+- o botão principal abre a prévia de investigação, sem chamar o backend;
+- um selo persistente deve informar **Prévia · dados demonstrativos**.
+
 Pergunta padrão:
 
 ```text
-Por que o talhão {alvo} apresentou vigor vegetal diferente do talhão {referencia}?
+O que as análises de solo indicam sobre o contexto da área e quais sinais aparecem na execução de correção e no vigor dos talhões {alvo} e {referencia}?
 ```
 
 #### Estado de processamento
@@ -234,19 +288,45 @@ Não inventar percentuais exatos. Pode usar indicador indeterminado e destacar a
 Deve conter as abas:
 
 1. **Visão geral:** resposta escrita pelo Gemini ou fallback identificado;
-2. **Evidências:** cards com valores e fontes;
-3. **Gráfico:** série temporal de NDVI pareada;
-4. **Métodos:** ferramentas, argumentos normalizados e arquivos usados;
-5. **Limitações:** restrições e proibições de conclusão.
+2. **Solo:** resumo descritivo, comparação entre conjuntos de medição e alertas de qualidade;
+3. **Evidências:** cards com valores e fontes;
+4. **Gráfico:** série temporal de NDVI pareada;
+5. **Métodos:** ferramentas, argumentos normalizados e arquivos usados;
+6. **Limitações:** restrições e proibições de conclusão.
 
 Deve haver botões para **Nova comparação** e **Baixar relatório HTML**.
+
+Na prévia visual anterior às Semanas 3 e 4:
+
+- as abas internas devem ser clicáveis e trocar o painel visível;
+- cards, números, gráfico ilustrativo, fontes e textos são mockados e devem ser rotulados como demonstração;
+- **Nova comparação** retorna à prévia de comparação;
+- **Baixar relatório HTML** permanece desabilitado ou identificado como indisponível na prévia;
+- nenhum texto mockado pode ser apresentado como resposta do Gemini ou evidência calculada.
+
+#### Direção dos gráficos analíticos finais
+
+O gráfico ilustrativo da prévia não define a qualidade final. Nas Semanas 2 e 4, a investigação deve evoluir para um dashboard analítico mais rico, inspirado na densidade, na hierarquia e na narrativa visual da referência fornecida em 2026-10-07. A identidade marrom permanece obrigatória.
+
+A aba **Solo** é uma área prioritária do produto e deve combinar:
+
+1. cards-resumo com quantidade de amostras, cobertura de valores válidos e alertas de qualidade;
+2. gráfico de distribuição por métrica com mínimo, Q1, mediana, Q3 e máximo;
+3. comparação visual de Conjunto 1 × Conjunto 2 por barras agrupadas ou gráfico de pontos conectados, sempre exibindo delta e quantidade de pares válidos;
+4. composição de areia, silte e argila em barras empilhadas a 100%, com um resumo agregado em rosca somente quando a soma válida permitir;
+5. controles para selecionar família e métrica, tooltips com valor, unidade ou **unidade não documentada**, fonte e tamanho da amostra;
+6. tabela acessível equivalente aos valores do gráfico e estado vazio quando não houver observações suficientes.
+
+A aba **Gráfico** mantém a trajetória temporal de NDVI com alvo e referência, legenda, datas pareadas e tooltips. Diferentes famílias de dados ou unidades não podem compartilhar o mesmo eixo apenas para preencher espaço visual.
+
+Como `soil_analysis.csv` não possui coordenada, data, profundidade ou vínculo com talhão, a interface não pode criar mapa, linha temporal, camada de profundidade ou comparação por talhão para o solo. Também não pode usar faixas vermelha/amarela/verde de suficiência agronômica sem referência técnica documentada. Todo valor visual deve vir das evidências determinísticas do backend; o frontend apenas seleciona, formata e apresenta.
 
 ## 8. Contrato dos arquivos
 
 ### 8.1 Regras gerais
 
 - aceitar `.csv` individualmente ou todos de uma vez;
-- nomes devem corresponder exatamente aos seis arquivos esperados;
+- nomes devem corresponder exatamente aos sete arquivos esperados;
 - tamanho total padrão máximo: 100 MB;
 - tentar `utf-8-sig`; se necessário, usar `latin-1` com aviso;
 - detectar delimitador entre vírgula e ponto e vírgula;
@@ -261,7 +341,8 @@ Arquivos obrigatórios:
 3. `service_orders.csv`;
 4. `service_orders_fields.csv`;
 5. `LAYER_MAP_PLANTING.csv`;
-6. `LAYER_MAP_FERTILIZATION.csv`.
+6. `LAYER_MAP_FERTILIZATION.csv`;
+7. `soil_analysis.csv`.
 
 ### 8.2 `fields.csv`
 
@@ -389,7 +470,7 @@ Colunas mínimas:
 Regras:
 
 - interpretar `Service Order` como `serviceOrderNumber`, não como `idServiceOrder`;
-- resolver ordem e talhão pelo pipeline espacial da seção 8.8;
+- resolver ordem e talhão pelo pipeline espacial da seção 8.9;
 - usar somente área positiva e população positiva;
 - registrar quantidade de linhas descartadas;
 - usar `Date Time` como data operacional e `Timestamp` como fallback.
@@ -413,11 +494,38 @@ Regras:
 
 - normalizar `operation` para maiúsculas e sem espaços externos;
 - interpretar `Service Order` como `serviceOrderNumber`, não como `idServiceOrder`;
-- resolver ordem e talhão pelo pipeline espacial da seção 8.8;
+- resolver ordem e talhão pelo pipeline espacial da seção 8.9;
 - usar somente área positiva, dose aplicada não negativa e dose configurada positiva;
 - agrupar por talhão e operação.
 
-### 8.8 Ligação das operações aos talhões
+### 8.8 `soil_analysis.csv`
+
+O arquivo usa `;` como delimitador e vírgula decimal no pacote atual. Seu escopo é o conjunto de dados completo, pois não há coluna que permita relacionar uma amostra a um talhão. É proibido criar esse vínculo por posição da linha, nome parecido ou suposição.
+
+Colunas mínimas:
+
+| Grupo | Colunas | Regra |
+| --- | --- | --- |
+| Identificação | `AMOSTRA` | obrigatória, não vazia e única |
+| Textura | `ARGILA`, `SILTE`, `AREIA` | numéricas entre 0 e 100 |
+| Fertilidade principal | `MO`, `CTC`, `CTCE`, `PHCACL2`, `CA`, `SATCA`, `MG`, `SATMG`, `K`, `SATK`, `P`, `SATB`, `AL`, `SATAL`, `S`, `HAL`, `SB` | numéricas e não negativas; pH entre 0 e 14 |
+| Micronutrientes | `B`, `ZN`, `MN`, `CU`, `FE` | opcionais; numéricas e não negativas quando presentes |
+| Segundo conjunto | nomes principais com sufixo `_2` | opcional; aplicar as mesmas validações |
+
+Regras:
+
+- normalizar vírgula decimal sem substituir valores inválidos por zero;
+- emitir aviso quando `ARGILA + SILTE + AREIA` estiver fora do intervalo de tolerância de 95 a 105;
+- chamar as colunas sem sufixo de **Conjunto 1** e as colunas `_2` de **Conjunto 2**;
+- não afirmar que `_2` representa profundidade, data ou repetição até existir metadado que documente isso;
+- não classificar valores como baixo, adequado ou alto sem unidade e referência agronômica documentadas;
+- preservar o nome original da variável e indicar quando a unidade não está disponível;
+- gerar avisos para valores nulos, micronutrientes ausentes ou ausência do Conjunto 2;
+- guardar as linhas normalizadas no store como `soil_samples`.
+
+`agricultural_inputs.csv` não é obrigatório neste MVP: apesar de conter insumos como calcário e gesso, o pacote atual não fornece uma ligação segura dessas linhas às aplicações espaciais. A execução de calagem e gessagem continua sendo analisada a partir de `LAYER_MAP_FERTILIZATION.csv`.
+
+### 8.9 Ligação das operações aos talhões
 
 O vínculo das linhas de plantio e fertilização deve combinar metadados da ordem e geometria. Não é permitido atribuir diretamente uma ordem compartilhada a apenas um talhão.
 
@@ -456,6 +564,7 @@ Regras adicionais:
 - geometria espacialmente ambígua entre talhões candidatos;
 - geometria ausente ou inválida quando sua ausência impede os dados mínimos de todos os pares;
 - nenhuma série de NDVI ligada a talhão;
+- nenhuma amostra de solo válida;
 - nenhum par comparável disponível.
 
 ### 9.2 Avisos
@@ -472,6 +581,10 @@ Regras adicionais:
 - ausência de produtividade confiável;
 - poucas datas pareadas;
 - distância de ligação espacial acima de 500 m e até 1.000 m.
+- soma de argila, silte e areia fora da tolerância de 95 a 105;
+- valor ausente ou inválido descartado em `soil_analysis.csv`;
+- micronutrientes ou Conjunto 2 ausentes;
+- unidade ou significado agronômico não documentado.
 
 ### 9.3 Resposta da validação
 
@@ -484,6 +597,11 @@ Regras adicionais:
   "fields": [],
   "valid_pairs": [],
   "available_operations": [],
+  "soil": {
+    "sample_count": 0,
+    "scope": "dataset",
+    "measurement_groups": ["group_1", "group_2"]
+  },
   "operation_linkage": {
     "assigned_rows": 0,
     "unassigned_rows": 0,
@@ -517,7 +635,7 @@ O critério 5 pode falhar sem bloquear a investigação, mas deve reduzir a for�
 
 ## 11. Ferramentas analíticas
 
-Todas as ferramentas recebem IDs e período normalizados. Elas não recebem DataFrames enviados pelo modelo.
+As ferramentas de comparação recebem IDs e período normalizados. As ferramentas de solo recebem apenas `dataset_id` e filtros de métricas permitidos. Nenhuma ferramenta recebe DataFrames enviados pelo modelo.
 
 ### 11.1 `validate_comparison`
 
@@ -647,6 +765,75 @@ Saída mínima:
 ```
 
 Não limitar artificialmente a conformidade a 100%; valores acima de 100% representam sobreaplicação e devem ser reportados.
+
+### 11.6 `summarize_soil_analysis`
+
+Resume o contexto do solo sem aplicar faixas agronômicas não documentadas. Deve calcular, por variável disponível, contagem válida, média, mediana, mínimo, máximo, primeiro quartil e terceiro quartil. O retorno deve separar textura, acidez/fertilidade, bases e micronutrientes.
+
+Entrada:
+
+```json
+{
+  "dataset_id": "uuid",
+  "measurement_group": "group_1"
+}
+```
+
+Saída mínima:
+
+```json
+{
+  "evidence_id": "EV-SOIL-SUMMARY-001",
+  "scope": "dataset",
+  "measurement_group": "group_1",
+  "sample_count": 8,
+  "metrics": [
+    {
+      "name": "PHCACL2",
+      "unit": null,
+      "valid_n": 8,
+      "mean": 0.0,
+      "median": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "q1": 0.0,
+      "q3": 0.0
+    }
+  ],
+  "warnings": [],
+  "source_files": ["soil_analysis.csv"],
+  "method": "estatísticas descritivas sem classificação agronômica"
+}
+```
+
+### 11.7 `compare_soil_measurement_groups`
+
+Compara apenas variáveis que existam nos dois conjuntos. O cálculo é pareado por `AMOSTRA` e usa `delta = Conjunto 2 - Conjunto 1`. Deve retornar deltas por amostra, mediana do delta e quantidade de pares válidos. A apresentação usa os rótulos **Conjunto 1** e **Conjunto 2**, nunca profundidades presumidas.
+
+Entrada:
+
+```json
+{
+  "dataset_id": "uuid",
+  "metrics": ["PHCACL2", "MO", "CTC", "AL", "SATB"]
+}
+```
+
+Saída mínima:
+
+```json
+{
+  "evidence_id": "EV-SOIL-GROUPS-001",
+  "scope": "dataset",
+  "comparison": "group_2_minus_group_1",
+  "metrics": [],
+  "source_files": ["soil_analysis.csv"],
+  "method": "comparação pareada por AMOSTRA",
+  "limitations": ["O significado do sufixo _2 não está documentado."]
+}
+```
+
+Nenhuma das duas ferramentas pode associar a análise de solo a `target_field_id` ou `reference_field_id` enquanto o arquivo não fornecer uma chave segura.
 
 ## 12. Harness do Gemini
 
@@ -941,6 +1128,11 @@ Retorna um arquivo HTML autocontido. O HTML deve escapar todo texto externo e n�
 - rejeição de empate espacial real;
 - ligação espacial de `season_id`;
 - rejeição de ligação ambígua.
+- leitura de `soil_analysis.csv` com `;`, BOM e vírgula decimal;
+- rejeição de `AMOSTRA` duplicada;
+- validação de textura, pH e valores não negativos;
+- aviso para soma de textura fora de 95 a 105;
+- preservação explícita de Conjunto 1 e Conjunto 2 sem inferir profundidade.
 
 ### 17.2 Analytics
 
@@ -953,6 +1145,9 @@ Retorna um arquivo HTML autocontido. O HTML deve escapar todo texto externo e n�
 - conformidade ponderada por área;
 - conformidade acima de 100%;
 - divisão por zero impedida.
+- estatísticas descritivas do solo calculadas sobre valores válidos;
+- comparação de Conjunto 2 menos Conjunto 1 pareada por `AMOSTRA`;
+- ausência de vínculo entre solo e talhão mantida no resultado e no texto.
 
 ### 17.3 Harness
 
@@ -976,11 +1171,16 @@ Retorna um arquivo HTML autocontido. O HTML deve escapar todo texto externo e n�
 - botão desabilitado durante requisição;
 - renderização sem `innerHTML` de texto externo;
 - gráfico destruído e recriado ao trocar resultado;
+- gráficos de solo usam os mesmos valores, unidades, contagens e deltas das evidências determinísticas;
+- distribuição de solo apresenta mínimo, quartis, mediana e máximo sem inventar observações;
+- composição de textura só aparece para linhas válidas e total compatível com 100%;
+- ausência de coordenada, data e profundidade impede mapa, tendência temporal e camadas de solo;
+- cada visualização possui tabela ou resumo textual acessível equivalente;
 - download do relatório.
 
 ## 18. Critérios de aceitação do cenário principal
 
-Dado o pacote acadêmico de seis arquivos usado no protótipo:
+Dado o pacote acadêmico de sete arquivos usado no protótipo:
 
 1. os quatro talhões devem ser reconhecidos;
 2. `Grão Convecional` deve ser apresentado internamente como `Grão Convencional`, com aviso de normalização;
@@ -991,10 +1191,13 @@ Dado o pacote acadêmico de seis arquivos usado no protótipo:
 7. o gap deve ser apresentado como `alvo - referência`;
 8. a condição pré-plantio deve aparecer como limitação quando diferente;
 9. população e conformidade devem ser calculadas somente das linhas espacialmente atribuídas aos talhões corretos;
-10. o Gemini deve receber os objetos de evidência, não os CSVs;
-11. a visão geral deve citar evidências válidas;
-12. o texto deve impedir conclusão de que agricultura 4.0 causou menor produtividade;
-13. o relatório deve continuar disponível se o Gemini falhar.
+10. as oito amostras válidas de `soil_analysis.csv` devem ser reconhecidas no escopo geral do dataset;
+11. Conjunto 1 e Conjunto 2 devem ser comparados sem dizer que representam profundidades;
+12. nenhuma amostra de solo deve ser atribuída a um talhão;
+13. o Gemini deve receber os objetos de evidência, não os CSVs;
+14. a visão geral deve citar evidências válidas;
+15. o texto deve impedir conclusão de que agricultura 4.0 causou menor produtividade ou que o solo explica um talhão específico;
+16. o relatório deve continuar disponível se o Gemini falhar.
 
 Valores conhecidos do protótipo podem ser usados como teste de regressão aproximado, nunca como valores hardcoded da interface:
 

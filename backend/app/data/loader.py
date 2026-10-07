@@ -16,6 +16,7 @@ EXPECTED_FILE_NAMES = (
     "LAYER_MAP_PLANTING.csv",
     "LAYER_MAP_FERTILIZATION.csv",
     "service_orders_fields.csv",
+    "soil_analysis.csv",
 )
 
 

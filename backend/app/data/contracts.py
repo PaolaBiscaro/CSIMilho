@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
@@ -78,6 +79,12 @@ class OperationLinkage(StrictModel):
     ambiguous_rows: StrictInt = Field(default=0, ge=0)
 
 
+class SoilAvailability(StrictModel):
+    sample_count: StrictInt = Field(default=0, ge=0)
+    scope: Literal["dataset"] = "dataset"
+    measurement_groups: list[StrictStr] = Field(default_factory=list)
+
+
 class DatasetValidationResponse(StrictModel):
     dataset_id: UUID | None
     status: DatasetStatus
@@ -86,6 +93,7 @@ class DatasetValidationResponse(StrictModel):
     fields: list[FieldRecord]
     valid_pairs: list[ValidPair]
     available_operations: list[StrictStr]
+    soil: SoilAvailability
     operation_linkage: OperationLinkage
     warnings: list[ValidationIssue]
     errors: list[ValidationIssue]

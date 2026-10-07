@@ -4,7 +4,13 @@ import pandas as pd
 from shapely import wkt
 
 from app.data.contracts import FieldManagement, FieldPurpose
-from app.data.normalizer import normalize_fertilization, normalize_fields, normalize_ndvi, normalize_planting
+from app.data.normalizer import (
+    normalize_fertilization,
+    normalize_fields,
+    normalize_ndvi,
+    normalize_planting,
+    normalize_soil,
+)
 
 
 def demonstration_fields_frame() -> pd.DataFrame:
@@ -299,3 +305,76 @@ def test_normalize_ndvi_reports_unsupported_crs_and_missing_columns() -> None:
     assert unsupported.errors[0].code == "unsupported_crs"
     assert unsupported.frame.empty
     assert missing.errors[0].code == "missing_column"
+
+
+def soil_frame() -> pd.DataFrame:
+    required_values = {
+        "ARGILA": "20,0", "SILTE": "30,0", "AREIA": "50,0", "MO": "4,5",
+        "CTC": "25,0", "CTCE": "20,0", "PHCACL2": "5,2", "CA": "12,0",
+        "SATCA": "48,0", "MG": "3,0", "SATMG": "12,0", "K": "1,0",
+        "SATK": "4,0", "P": "10,0", "SATB": "64,0", "AL": "0,5",
+        "SATAL": "2,0", "S": "6,0", "HAL": "9,0", "SB": "16,0",
+        "B": "0,2", "ZN": "1,0", "MN": "5,0", "CU": "0,5", "FE": "30,0",
+        "MO_2": "4,8", "PHCACL2_2": "5,4", "AL_2": "0,3",
+    }
+    return pd.DataFrame([
+        {"AMOSTRA": "A-1", **required_values},
+        {"AMOSTRA": "A-2", **required_values},
+    ])
+
+
+def test_normalize_soil_preserves_dataset_scope_and_measurement_groups() -> None:
+    result = normalize_soil(soil_frame())
+
+    assert result.errors == []
+    assert result.measurement_groups == ["group_1", "group_2"]
+    assert result.frame["sample_id"].tolist() == ["A-1", "A-2"]
+    assert result.frame["scope"].tolist() == ["dataset", "dataset"]
+    assert result.frame.loc[0, "group_1"]["PHCACL2"] == 5.2
+    assert result.frame.loc[0, "group_2"]["PHCACL2"] == 5.4
+    assert "field_id" not in result.frame.columns
+    assert {warning.code for warning in result.warnings} == {"soil_units_undocumented"}
+
+
+def test_normalize_soil_discards_invalid_values_without_turning_them_into_zero() -> None:
+    frame = soil_frame().iloc[:1].copy()
+    frame.loc[0, "ARGILA"] = "120,0"
+    frame.loc[0, "PHCACL2"] = "not-a-number"
+    frame.loc[0, "AL"] = "-1,0"
+
+    result = normalize_soil(frame)
+
+    group = result.frame.loc[0, "group_1"]
+    assert group["ARGILA"] is None
+    assert group["PHCACL2"] is None
+    assert group["AL"] is None
+    assert "invalid_soil_values" in {warning.code for warning in result.warnings}
+
+
+def test_normalize_soil_warns_for_texture_sum_and_optional_groups() -> None:
+    frame = soil_frame().iloc[:1].drop(
+        columns=["B", "ZN", "MN", "CU", "FE", "MO_2", "PHCACL2_2", "AL_2"]
+    )
+    frame.loc[0, ["ARGILA", "SILTE", "AREIA"]] = ["10", "10", "10"]
+
+    result = normalize_soil(frame)
+
+    assert result.measurement_groups == ["group_1"]
+    assert {
+        "missing_soil_micronutrients",
+        "missing_soil_group_2",
+        "soil_texture_sum_out_of_range",
+        "soil_units_undocumented",
+    } == {warning.code for warning in result.warnings}
+
+
+def test_normalize_soil_rejects_duplicate_sample_and_missing_required_column() -> None:
+    duplicate = soil_frame()
+    duplicate.loc[1, "AMOSTRA"] = "A-1"
+    duplicated_result = normalize_soil(duplicate)
+    missing_result = normalize_soil(soil_frame().drop(columns=["CTC"]))
+
+    assert [issue.code for issue in duplicated_result.errors] == ["duplicate_soil_sample"]
+    assert len(duplicated_result.frame) == 1
+    assert missing_result.frame.empty
+    assert any(issue.code == "missing_column" and "CTC" in issue.message for issue in missing_result.errors)

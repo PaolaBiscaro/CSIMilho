@@ -21,6 +21,7 @@ flowchart TB
 Responsabilidades:
 
 - o frontend coleta arquivos e escolhas, mostra progresso e renderiza a resposta;
+- o frontend também oferece prévias locais e rotuladas das telas futuras, sem confundi-las com resultados calculados;
 - a API valida requisições e mantém o estado temporário;
 - as ferramentas calculam as métricas;
 - o Gemini decide quais ferramentas usar e organiza a explicação;
@@ -36,7 +37,7 @@ sequenceDiagram
     participant H as Harness
     participant G as Gemini
 
-    U->>W: Seleciona os cinco CSVs
+    U->>W: Seleciona os sete CSVs
     W->>A: Envia pacote multipart
     A->>A: Lê, normaliza, liga e valida
     A-->>W: Talhões, pares, avisos e qualidade
@@ -57,11 +58,31 @@ sequenceDiagram
     W-->>U: Mostra visão geral e detalhes
 ```
 
+## 2.1 Fluxo temporário das prévias de interface
+
+```mermaid
+flowchart LR
+    D["Aba Dados"] --> C["Prévia de Comparação"]
+    C --> I["Prévia de Investigação"]
+    I --> C
+    C --> M["Mocks locais do frontend"]
+    I --> M
+    M -. "não chama" .-> X["API de investigação"]
+```
+
+Regras do fluxo temporário:
+
+- a navegação entre as três áreas é clicável independentemente do backend de investigação;
+- Comparação e Investigação exibem o selo **Prévia · dados demonstrativos**;
+- os mocks existem somente para validar layout, responsividade e interação;
+- a importação real continua usando a API; as prévias não escrevem no store nem alteram `dataset_id`;
+- quando as Semanas 2 a 4 conectarem dados reais, os componentes visuais devem ser reaproveitados e os mocks removidos do caminho de produção.
+
 ## 3. Pipeline de importação
 
 ```mermaid
 flowchart TB
-    I["Cinco arquivos selecionados"] --> N["Validar nomes e limites"]
+    I["Sete arquivos selecionados"] --> N["Validar nomes e limites"]
     N --> R["Ler CSV e detectar delimitador"]
     R --> C["Validar colunas e tipos"]
     C --> Z["Normalizar dados"]
@@ -93,13 +114,16 @@ errors[]
 flowchart TB
     F["fields.csv"] --> FI["Catálogo de talhões"]
     SO["service_orders_fields.csv"] --> OM["Ordem de serviço para talhão"]
+    SC["service_orders.csv"] --> OM
     P["LAYER_MAP_PLANTING.csv"] --> OM
     A["LAYER_MAP_FERTILIZATION.csv"] --> OM
     N["ndvi_metadata.csv"] --> SM["season_id para talhão por proximidade"]
+    S["soil_analysis.csv"] --> SX["Contexto de solo do dataset"]
     FI --> OM
     FI --> SM
     OM --> DS["Dataset normalizado da sessão"]
     SM --> DS
+    SX --> DS
 ```
 
 Regras de ligação:
@@ -109,6 +133,31 @@ Regras de ligação:
 - a série NDVI usa o centro dos bounds convertido para longitude e latitude;
 - o centro é ligado ao centroide mais próximo em `fields.csv`;
 - ligações ambíguas ou acima do limite são rejeitadas.
+- `soil_analysis.csv` entra diretamente no escopo geral do dataset, sem vínculo com talhão;
+- as colunas `_2` são preservadas como Conjunto 2, sem presumir profundidade.
+
+## 4.1 Pipeline da análise de solo
+
+```mermaid
+flowchart TB
+    S["soil_analysis.csv"] --> R["Ler ponto e vírgula e vírgula decimal"]
+    R --> V["Validar AMOSTRA, textura, pH e valores"]
+    V --> G["Separar Conjunto 1 e Conjunto 2"]
+    G --> D["Calcular estatísticas descritivas"]
+    G --> C["Comparar pares por AMOSTRA"]
+    D --> E["Evidências no escopo do dataset"]
+    C --> E
+    E --> BX["Contrato de distribuição: mínimo, Q1, mediana, Q3 e máximo"]
+    E --> CP["Contrato pareado: Conjunto 1, Conjunto 2 e delta"]
+    E --> TX["Contrato de textura: areia, silte e argila válidos"]
+    BX --> UI["Dashboard analítico de solo"]
+    CP --> UI
+    TX --> UI
+```
+
+O fluxo não aplica faixas de suficiência, não atribui amostras a talhões e não interpreta `_2` como profundidade. O resultado apresenta contagem, média, mediana, extremos, quartis e deltas pareados quando disponíveis. Os contratos de visualização são calculados no backend e apenas renderizados no frontend.
+
+Sem coordenada, data ou profundidade, o pipeline não produz mapa, tendência temporal nem perfil de camadas para o solo. A composição de textura só é disponibilizada para amostras válidas cuja soma esteja dentro da tolerância definida no `SPEC.md`; métricas com unidades distintas nunca são colocadas no mesmo eixo.
 
 ## 5. Pipeline de NDVI
 
@@ -245,16 +294,28 @@ flowchart TB
 ```mermaid
 flowchart TB
     A["Resposta validada da API"] --> V["Visão geral escrita"]
+    A --> S["Visão de solo"]
+    S --> SK["Cards de amostras e qualidade"]
+    S --> SD["Distribuição por métrica"]
+    S --> SC["Conjunto 1 × Conjunto 2"]
+    S --> ST["Composição de textura"]
     A --> E["Cards de evidência"]
     A --> G["Gráfico de NDVI"]
     A --> L["Limitações"]
     A --> M["Métodos e trace"]
     V --> H["Relatório HTML"]
+    S --> H
     E --> H
     G --> H
     L --> H
     M --> H
+    SK --> H
+    SD --> H
+    SC --> H
+    ST --> H
 ```
+
+Cada gráfico da visão de solo deve possuir título, contexto, unidade, quantidade de observações, fonte e alternativa tabular acessível. Seletores alteram somente a apresentação de evidências já calculadas; não executam fórmulas paralelas no navegador.
 
 ## 13. Fluxo de erro e fallback
 
@@ -295,4 +356,3 @@ flowchart TB
 | Gemini | escolher ferramentas e redigir síntese | ler CSV bruto ou executar código |
 | Harness | controlar, validar e rastrear | alterar valores calculados |
 | Fallback | montar texto por regras | fingir que é Gemini |
-

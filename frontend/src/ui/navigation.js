@@ -1,57 +1,58 @@
-const STEPS = [
-  { id: 'data', number: '01', label: 'Dados', description: 'Importar e validar' },
-  { id: 'comparison', number: '02', label: 'Comparação', description: 'Escolher talhões' },
-  { id: 'investigation', number: '03', label: 'Investigação', description: 'Examinar resultados' },
-]
+export const NAV_ITEMS = Object.freeze([
+  { id: 'data', label: 'Dados' },
+  { id: 'comparison', label: 'Comparação' },
+  { id: 'investigation', label: 'Investigação' },
+])
 
-export function createNavigation(currentStep = 'data') {
-  const sidebar = document.createElement('aside')
-  sidebar.className = 'sidebar'
-  sidebar.setAttribute('aria-label', 'Etapas da investigação')
+export function createNavigation(currentPage = 'data', onNavigate = () => {}) {
+  const header = document.createElement('header')
+  header.className = 'app-header'
 
-  const brand = document.createElement('div')
+  const brand = document.createElement('button')
   brand.className = 'brand'
+  brand.type = 'button'
+  brand.setAttribute('aria-label', 'FarmLab Investigator — abrir Dados')
+  brand.addEventListener('click', () => onNavigate('data'))
 
   const brandMark = document.createElement('span')
   brandMark.className = 'brand__mark'
   brandMark.setAttribute('aria-hidden', 'true')
   brandMark.textContent = 'FL'
 
-  const brandText = document.createElement('div')
+  const brandText = document.createElement('span')
+  brandText.className = 'brand__text'
   const brandName = document.createElement('strong')
   brandName.textContent = 'FarmLab'
-  const brandProduct = document.createElement('span')
+  const brandProduct = document.createElement('small')
   brandProduct.textContent = 'Investigator'
   brandText.append(brandName, brandProduct)
   brand.append(brandMark, brandText)
 
-  const navigation = document.createElement('ol')
-  navigation.className = 'step-list'
+  const navigation = document.createElement('nav')
+  navigation.className = 'app-nav'
+  navigation.setAttribute('aria-label', 'Áreas da aplicação')
 
-  for (const step of STEPS) {
-    const item = document.createElement('li')
-    const isCurrent = step.id === currentStep
-    item.className = `step${isCurrent ? ' step--current' : ''}`
-    if (isCurrent) item.setAttribute('aria-current', 'step')
-
-    const number = document.createElement('span')
-    number.className = 'step__number'
-    number.textContent = step.number
-
-    const text = document.createElement('span')
-    const label = document.createElement('strong')
-    label.textContent = step.label
-    const description = document.createElement('small')
-    description.textContent = step.description
-    text.append(label, description)
-    item.append(number, text)
-    navigation.append(item)
+  for (const item of NAV_ITEMS) {
+    const button = document.createElement('button')
+    const isCurrent = item.id === currentPage
+    button.className = `nav-pill${isCurrent ? ' nav-pill--active' : ''}`
+    button.type = 'button'
+    button.textContent = item.label
+    button.dataset.page = item.id
+    if (isCurrent) button.setAttribute('aria-current', 'page')
+    button.addEventListener('click', () => onNavigate(item.id))
+    navigation.append(button)
   }
 
-  const note = document.createElement('p')
-  note.className = 'sidebar__note'
-  note.textContent = 'Dados locais e temporários. Nenhum CSV é enviado ao Gemini.'
+  const session = document.createElement('div')
+  session.className = 'header-session'
+  const dot = document.createElement('span')
+  dot.className = 'header-session__dot'
+  dot.setAttribute('aria-hidden', 'true')
+  const copy = document.createElement('span')
+  copy.textContent = 'Sessão local'
+  session.append(dot, copy)
 
-  sidebar.append(brand, navigation, note)
-  return sidebar
+  header.append(brand, navigation, session)
+  return header
 }

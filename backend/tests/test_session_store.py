@@ -16,6 +16,13 @@ def dataset(label: str = "original") -> NormalizedDataset:
         service_order_operations={"SO-1": "PLANTIO"},
         service_order_mapping={"SO-1": {"103144"}},
         season_links=[],
+        soil_samples=pd.DataFrame({
+            "sample_id": ["1"], "scope": ["dataset"],
+            "group_1": [{"PHCACL2": 5.2}], "group_2": [{"PHCACL2": 5.4}],
+        }),
+        soil_metadata={
+            "sample_count": 1, "scope": "dataset", "measurement_groups": ["group_1", "group_2"],
+        },
         dataset_metadata={"label": label, "source_files": ["fields.csv"]},
     )
 
@@ -29,6 +36,8 @@ def test_store_recovers_normalized_objects_by_uuid() -> None:
     assert recovered.fields[0].field_id == "103144"
     assert recovered.ndvi_observations.loc[0, "ndvi"] == 0.5
     assert recovered.service_order_mapping == {"SO-1": {"103144"}}
+    assert recovered.soil_samples.loc[0, "scope"] == "dataset"
+    assert recovered.soil_metadata["sample_count"] == 1
     assert recovered.dataset_metadata["source_files"] == ["fields.csv"]
 
 
@@ -54,5 +63,7 @@ def test_store_returns_copies_instead_of_mutable_internal_state() -> None:
     dataset_id = store.save(dataset())
     recovered = store.get(dataset_id)
     recovered.ndvi_observations.loc[0, "ndvi"] = 0.9
+    recovered.soil_samples.loc[0, "group_1"]["PHCACL2"] = 9.0
 
     assert store.get(dataset_id).ndvi_observations.loc[0, "ndvi"] == 0.5
+    assert store.get(dataset_id).soil_samples.loc[0, "group_1"]["PHCACL2"] == 5.2

@@ -18,7 +18,8 @@ Cada responsável deve:
 | Responsável | Escopo | Tarefas | Resultado principal |
 | --- | --- | --- | --- |
 | Pessoa 1 | Semana 1 | `W1.01` a `W1.16` | Projeto iniciado, arquivos importados e dados validados |
-| Pessoa 2 | Semana 2 | `W2.01` a `W2.12` | Ferramentas analíticas determinísticas funcionando |
+| Pessoa 1 / Codex | Reajuste pós-Semana 1 | `R1.01` a `R1.06` | Solo integrado e identidade visual atualizada |
+| Pessoa 2 | Semana 2 | `W2.01` a `W2.14` | Ferramentas analíticas determinísticas funcionando |
 | Pessoa 3 | Semana 3 | `W3.01` a `W3.15` | Gemini e harness controlado integrados |
 | Pessoa 4 | Semana 4 | `W4.01` a `W4.15` | Interface integrada e versão pronta para apresentação |
 
@@ -196,6 +197,85 @@ dataset_metadata
 
 Nenhuma análise da Semana 2 deve voltar a ler os CSVs diretamente. Ela deve consumir os objetos normalizados entregues pela Semana 1.
 
+## 7.1 Handoff do reajuste pós-Semana 1 para a Semana 2
+
+O registro da Semana 1 permanece válido como histórico da versão de seis arquivos. Entretanto, a Semana 2 só pode começar depois deste reajuste.
+
+### O reajuste deve entregar
+
+- contrato de upload com sete arquivos obrigatórios;
+- normalização de `soil_analysis.csv` no store como `soil_samples`;
+- resposta da API com quantidade de amostras, grupos disponíveis e `scope: dataset`;
+- tela de importação reconhecendo o sétimo arquivo;
+- tokens CSS com `#895129` como cor principal;
+- fixtures e testes atualizados sem quebrar as seis fontes anteriores;
+- README e documentação coerentes.
+
+### Limites que não podem ser removidos
+
+- não associar `AMOSTRA` a `idField` sem uma chave real;
+- não chamar `_2` de profundidade, camada, época ou repetição;
+- não aplicar faixas de suficiência sem unidades e referência agronômica documentadas;
+- não tornar `agricultural_inputs.csv` obrigatório sem definir uma ligação confiável.
+
+### Gate específico do reajuste
+
+- [x] Sete arquivos podem ser importados pelo navegador.
+- [x] O pacote sem `soil_analysis.csv` retorna erro compreensível.
+- [x] O pacote atual reconhece oito amostras válidas.
+- [x] `soil_samples` fica disponível no store com escopo geral.
+- [x] Conjunto 1 e Conjunto 2 são preservados sem inferência de profundidade.
+- [x] A interface usa `#895129` como cor primária e mantém contraste/foco.
+- [x] Pytest, Vitest e build Vite passam.
+- [x] O Registro — Reajuste pós-Semana 1 foi preenchido.
+
+### O que a Semana 2 precisa encontrar adicionalmente
+
+```text
+soil_samples
+soil_metadata.sample_count
+soil_metadata.scope = dataset
+soil_metadata.measurement_groups
+```
+
+## 7.2 Handoff do reajuste visual para a Semana 2
+
+Antes de `W2.01`, o frontend passa a oferecer prévias navegáveis das três áreas dentro de um shell de dashboard inspirado nas referências fornecidas. A cor primária continua sendo `#895129`.
+
+### O reajuste visual deve entregar
+
+- cabeçalho horizontal com marca, navegação em pílulas e estado ativo acessível;
+- tela de Dados funcional reaproveitada na nova grade de cards;
+- prévia de Comparação com controles clicáveis e mocks locais;
+- prévia de Investigação com abas internas clicáveis e mocks locais;
+- selo visível **Prévia · dados demonstrativos** nas telas ainda não conectadas;
+- responsividade sem rolagem horizontal em 1440 px, 820 px e 390 px.
+
+### Limites que a Semana 2 deve preservar
+
+- mocks não são evidências e não podem alimentar o backend;
+- a prévia não conclui nenhuma tarefa `W2.*`, `W3.*` ou `W4.*`;
+- nenhum número demonstrativo pode ser apresentado como calculado, real ou produzido pelo Gemini;
+- os componentes visuais devem aceitar substituição futura dos mocks pelos contratos reais;
+- a importação e a validação já entregues continuam funcionais.
+
+### Gate do reajuste visual
+
+- [x] Os seis documentos-base foram atualizados antes do frontend.
+- [x] Dados, Comparação e Investigação podem ser abertas pela navegação.
+- [x] Continuar leva à prévia de Comparação.
+- [x] O CTA da Comparação leva à prévia de Investigação sem chamar a API.
+- [x] As abas internas da Investigação trocam o conteúdo visível.
+- [x] As telas mockadas estão claramente identificadas.
+- [x] A paleta mantém `#895129` como primária.
+- [x] Vitest, build e revisão responsiva passam.
+
+## 7.3 Diretriz de visualização para as próximas semanas
+
+A prévia entregue em `R1.08` valida navegação e composição, mas seus gráficos ilustrativos não representam o nível final esperado. As Semanas 2 e 4 devem transformar a aba **Solo** em uma área analítica prioritária, inspirada na densidade e na narrativa do dashboard de referência, sem trocar a identidade marrom.
+
+A Semana 2 deve fornecer evidências e contratos próprios para distribuição por métrica, comparação pareada Conjunto 1 × Conjunto 2 e composição válida de textura. A Semana 4 deve transformar esses contratos em cards, gráficos interativos, tooltips e tabelas acessíveis. Nenhum gráfico pode criar mapa, tempo, profundidade, unidade, vínculo com talhão ou faixa agronômica que os dados não fornecem.
+
 ## 8. Handoff da Semana 2 para a Semana 3
 
 ### A Semana 2 deve entregar
@@ -206,10 +286,13 @@ Nenhuma análise da Semana 2 deve voltar a ler os CSVs diretamente. Ela deve con
 - `check_initial_condition`;
 - `compare_population`;
 - `application_compliance`;
+- `summarize_soil_analysis`;
+- `compare_soil_measurement_groups`;
+- contratos de visualização do solo para distribuição, comparação pareada e composição de textura;
 - registry fechado das ferramentas;
 - testes unitários das fórmulas;
 - teste de regressão com o pacote da apresentação;
-- tela de comparação e componente do gráfico.
+- tela de comparação e componentes de gráficos para NDVI e solo.
 
 ### A Semana 2 não deve entregar
 
@@ -228,6 +311,10 @@ Nenhuma análise da Semana 2 deve voltar a ler os CSVs diretamente. Ela deve con
 - [ ] Condição inicial usa corte anterior ao plantio.
 - [ ] População é ponderada pela área.
 - [ ] Conformidade é ponderada pela área e pode ultrapassar 100%.
+- [ ] O resumo do solo calcula estatísticas descritivas sobre valores válidos.
+- [ ] A comparação de solo é pareada por `AMOSTRA` e usa Conjunto 2 menos Conjunto 1.
+- [ ] Nenhuma evidência de solo atribui amostra a talhão ou presume profundidade.
+- [ ] Os contratos visuais do solo carregam valores, unidade, contagem, fonte e limitações sem misturar métricas incompatíveis.
 - [ ] Cada ferramenta retorna uma evidência conforme o schema.
 - [ ] O registry rejeita ferramentas desconhecidas.
 - [ ] O baseline do pacote real foi conferido.
@@ -239,6 +326,13 @@ Cada ferramenta deve poder ser chamada desta forma lógica:
 ```text
 tool(dataset_id, target_field_id, reference_field_id, period, ...)
 → evidence
+```
+
+As ferramentas de solo usam a assinatura lógica abaixo porque o arquivo não possui vínculo com talhão:
+
+```text
+soil_tool(dataset_id, measurement_group ou metrics)
+→ evidence com scope = dataset
 ```
 
 A Semana 3 não deve reproduzir fórmulas dentro do prompt. Ela deve registrar e chamar as funções já testadas.
@@ -309,6 +403,7 @@ A Semana 4 deve consumir esse contrato sem criar cálculos paralelos no frontend
 - visão geral escrita do Gemini;
 - achados, recomendações e evidências;
 - gráfico real de NDVI;
+- dashboard analítico de solo com distribuição, comparação pareada, composição de textura e alternativas tabulares;
 - abas de limitações e métodos;
 - relatório HTML;
 - build servido pelo FastAPI;
@@ -325,6 +420,7 @@ A Semana 4 deve consumir esse contrato sem criar cálculos paralelos no frontend
 - [ ] A investigação real pode ser executada na interface.
 - [ ] A visão geral identifica Gemini ou fallback corretamente.
 - [ ] O gráfico corresponde aos pontos da evidência.
+- [ ] Os gráficos de solo correspondem às evidências, mostram amostras/unidades/fontes e não inventam mapa, tempo ou profundidade.
 - [ ] Nenhum conteúdo externo é inserido com `innerHTML` inseguro.
 - [ ] O relatório abre offline.
 - [ ] Falha do Gemini não derruba a aplicação.
@@ -378,7 +474,78 @@ arquivos_importantes_alterados:
   - "backend/tests/fixtures/manual/"
   - "frontend/src/ui/upload.js"
   - "README.md"
-primeiro_passo_da_semana_seguinte: "Iniciar W2.01 consumindo somente os objetos normalizados do store; não reler os CSVs nem refazer a atribuição espacial."
+primeiro_passo_da_semana_seguinte: "Executar R1.01 antes de W2.01; ampliar o contrato para sete arquivos sem apagar ou refazer o histórico concluído da Semana 1."
+```
+
+### Registro — Reajuste pós-Semana 1
+
+```yaml
+responsavel: Codex
+branch: feat/heloisa
+commit_entregue: "working tree sobre 5bc3e70; nenhum commit criado automaticamente"
+data: 2026-10-07
+status: concluido
+tarefas_concluidas: [R1.01, R1.02, R1.03, R1.04, R1.05, R1.06]
+tarefas_pendentes: []
+comandos_para_executar:
+  - "cd backend && uv sync --locked"
+  - "cd backend && uv run uvicorn app.main:app --reload"
+  - "cd frontend && pnpm install --frozen-lockfile"
+  - "cd frontend && pnpm dev"
+testes_executados:
+  - "cd backend && uv run pytest"
+  - "cd frontend && pnpm test"
+  - "cd frontend && pnpm build"
+  - "POST /api/datasets com os sete arquivos reais de demo-data/local"
+  - "importação dos sete arquivos reais pelo navegador e revisão em 1440, 820 e 390 px"
+resultado_dos_testes: "56 testes Pytest e 4 testes Vitest passaram; build Vite passou; pacote real retorna 201/ready_with_warnings, qualidade 60, 15 avisos, 4 talhões, 2 pares e 8 amostras de solo; Continuar habilitado"
+decisoes_tomadas:
+  - "soil_analysis.csv é obrigatório e tem escopo geral do dataset"
+  - "colunas _2 são Conjunto 2 até que seu significado seja documentado"
+  - "a cor primária do frontend é #895129"
+  - "valores ausentes ou inválidos do solo viram ausência, nunca zero"
+  - "soil_samples usa sample_id, scope, group_1 e group_2; cópias do store isolam também os dicionários internos"
+problemas_conhecidos:
+  - "soil_analysis.csv não possui vínculo com idField, coordenada, data ou profundidade"
+  - "TestClient emite dois avisos de depreciação de dependências, sem falha funcional"
+arquivos_importantes_alterados:
+  - "backend/app/data/contracts.py, loader.py, normalizer.py e session_store.py"
+  - "backend/app/api/datasets.py"
+  - "backend/tests/ e backend/tests/fixtures/manual/soil_analysis.csv"
+  - "frontend/src/ui/upload.js e frontend/src/main.js"
+  - "frontend/src/styles/"
+  - "README.md, PLANEJAMENTO_CODEX.md e HANDOFF.md"
+primeiro_passo_da_semana_seguinte: "Iniciar W2.01 consumindo objetos normalizados, inclusive soil_samples; não reler CSVs nas ferramentas."
+```
+
+### Registro — Reajuste visual pré-Semana 2
+
+```yaml
+responsavel: Codex
+branch: feat/heloisa
+commit_entregue: "working tree sobre 5bc3e70; nenhum commit criado automaticamente"
+data: 2026-10-07
+status: concluido
+tarefas_concluidas: [R1.07, R1.08]
+tarefas_pendentes: []
+testes_executados:
+  - "cd backend && pytest"
+  - "cd frontend && vitest run"
+  - "cd frontend && vite build"
+  - "navegação e interações pelo Chrome em 1440, 820 e 390 px"
+resultado_dos_testes: "56 testes Pytest e 7 testes Vitest passaram; build Vite passou; Dados, Comparação, Investigação, troca de talhões e abas internas foram validados; não houve overflow horizontal"
+decisoes_tomadas:
+  - "manter #895129 como cor primária"
+  - "usar shell claro, cards brancos arredondados e navegação horizontal em pílulas"
+  - "isolar mocks em frontend/src/mocks e identificar toda prévia como demonstrativa"
+problemas_conhecidos:
+  - "Comparação e Investigação ainda não consomem contratos analíticos, por decisão de escopo"
+arquivos_importantes_alterados:
+  - "frontend/src/main.js, frontend/src/ui/navigation.js"
+  - "frontend/src/ui/comparison-preview.js e frontend/src/ui/investigation-preview.js"
+  - "frontend/src/mocks/preview-data.js e frontend/src/styles/"
+  - "HANDOFF.md, PIPELINES.md, PLANEJAMENTO_CODEX.md, PROJETO.md, README.md e SPEC.md"
+primeiro_passo_da_semana_seguinte: "Iniciar W2.01 sem reaproveitar os valores mockados como evidência e substituir os mocks somente por contratos reais validados."
 ```
 
 ### Registro — Semana 2
@@ -482,6 +649,27 @@ Ao terminar a Semana 1:
 3. preencha o Registro — Semana 1 em HANDOFF.md;
 4. liste arquivos alterados, comandos de execução, testes, decisões e pendências;
 5. pare antes de qualquer tarefa da Semana 2.
+```
+
+## 14.1 Prompt inicial para o reajuste pós-Semana 1
+
+```text
+Você está assumindo o reajuste pós-Semana 1 do FarmLab Investigator. A Semana 1 já foi concluída e seu histórico não deve ser apagado nem reaberto.
+
+Leia integralmente SPEC.md, PROJETO.md, PIPELINES.md, PLANEJAMENTO_CODEX.md e HANDOFF.md. Inspecione o código e execute primeiro os testes registrados na entrega da Semana 1.
+
+Implemente somente R1.01 até R1.06, na ordem, sem iniciar W2.*. O objetivo é tornar soil_analysis.csv o sétimo arquivo obrigatório, normalizá-lo como contexto geral do dataset e aplicar a identidade visual marrom com #895129 como cor principal.
+
+Regras obrigatórias:
+- não atribua amostras de solo a talhões, pois não existe chave ou coordenada para isso;
+- trate colunas sem sufixo como Conjunto 1 e colunas _2 como Conjunto 2; não presuma profundidade;
+- não classifique nutrientes ou atributos como baixos, adequados ou altos sem unidades e referência documentadas;
+- não torne agricultural_inputs.csv obrigatório neste reajuste;
+- preserve o comportamento e os testes das seis fontes já implementadas;
+- mantenha frontend Vanilla, FastAPI, dados em memória e chave Gemini somente no backend;
+- atualize checkboxes, Diário de execução, README e o Registro — Reajuste pós-Semana 1.
+
+Ao terminar, execute Pytest, Vitest, build Vite e a importação manual dos sete arquivos. Confirme a leitura das oito amostras do arquivo atual, registre branch/commit e pare antes de W2.01.
 ```
 
 ## 15. Prompt para receber uma semana já iniciada

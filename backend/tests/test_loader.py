@@ -40,6 +40,16 @@ def test_load_csv_does_not_replace_invalid_values_with_zero() -> None:
     assert not pd.isna(loaded.frame.loc[0, "idField"])
 
 
+def test_load_soil_csv_accepts_bom_semicolon_and_preserves_decimal_comma() -> None:
+    content = "\ufeffAMOSTRA;PHCACL2\n1;5,23\n".encode("utf-8")
+
+    loaded = load_csv("soil_analysis.csv", content)
+
+    assert loaded.file.encoding == "utf-8-sig"
+    assert loaded.file.delimiter == ";"
+    assert loaded.frame.loc[0, "PHCACL2"] == "5,23"
+
+
 @pytest.mark.parametrize("content", [b"", b"\x00\x00\x00", b"only-one-column\nvalue\n"])
 def test_load_csv_rejects_unreadable_content(content: bytes) -> None:
     with pytest.raises(CsvLoadError) as error:
@@ -56,6 +66,7 @@ def complete_package() -> list[CsvInput]:
         CsvInput("LAYER_MAP_PLANTING.csv", b"a,b\n1,2"),
         CsvInput("LAYER_MAP_FERTILIZATION.csv", b"a,b\n1,2"),
         CsvInput("service_orders_fields.csv", b"a,b\n1,2"),
+        CsvInput("soil_analysis.csv", b"a;b\n1;2"),
     ]
 
 
@@ -75,3 +86,14 @@ def test_validate_package_enforces_total_size() -> None:
 
     with pytest.raises(PackageTooLargeError):
         validate_package_files(package, max_upload_mb=0)
+
+
+def test_validate_package_requires_soil_analysis() -> None:
+    package = [item for item in complete_package() if item.name != "soil_analysis.csv"]
+
+    with pytest.raises(PackageValidationError) as error:
+        validate_package_files(package, max_upload_mb=1)
+
+    assert [(issue.code, issue.file) for issue in error.value.issues] == [
+        ("missing_file", "soil_analysis.csv")
+    ]

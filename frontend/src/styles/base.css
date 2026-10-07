@@ -4,11 +4,17 @@
   box-sizing: border-box;
 }
 
-body {
-  margin: 0;
+html {
   min-width: 320px;
-  background: var(--color-sand-50);
-  color: var(--color-ink-900);
+  background: var(--canvas-deep);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--canvas-deep);
+  color: var(--ink);
   font-family: var(--font-sans);
   line-height: 1.5;
 }
@@ -17,37 +23,52 @@ button,
 input,
 select,
 textarea {
+  color: inherit;
   font: inherit;
+}
+
+button,
+select {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
 }
 
 h1,
 h2,
+h3,
 p {
   margin-top: 0;
 }
 
 h1,
-h2 {
+h2,
+h3 {
   line-height: 1.12;
   letter-spacing: -0.025em;
 }
 
 h1 {
-  max-width: 16ch;
-  margin-bottom: var(--space-4);
-  font-size: clamp(2.15rem, 5vw, 4.5rem);
+  margin-bottom: var(--space-3);
+  font-size: clamp(2.15rem, 4vw, 3.75rem);
   font-weight: 650;
 }
 
 h2 {
   margin-bottom: var(--space-3);
-  font-size: clamp(1.35rem, 2.2vw, 2rem);
+  font-size: clamp(1.2rem, 2vw, 1.7rem);
 }
 
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid var(--color-moss-500);
+  outline: 3px solid var(--brown-800);
   outline-offset: 3px;
+}
+
+[hidden] {
+  display: none !important;
 }

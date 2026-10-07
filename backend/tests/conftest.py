@@ -8,9 +8,9 @@ import pytest
 from app.data.linker import EARTH_RADIUS_METERS
 
 
-def csv_bytes(fieldnames: list[str], rows: list[dict]) -> bytes:
+def csv_bytes(fieldnames: list[str], rows: list[dict], delimiter: str = ",") -> bytes:
     stream = io.StringIO(newline="")
-    writer = csv.DictWriter(stream, fieldnames=fieldnames)
+    writer = csv.DictWriter(stream, fieldnames=fieldnames, delimiter=delimiter)
     writer.writeheader()
     writer.writerows(rows)
     return stream.getvalue().encode("utf-8-sig")
@@ -133,6 +133,38 @@ def presentation_package() -> dict[str, bytes]:
         ],
         ndvi_rows,
     )
+    soil_columns = [
+        "AMOSTRA", "ARGILA", "SILTE", "AREIA", "MO", "CTC", "CTCE", "PHCACL2",
+        "CA", "SATCA", "MG", "SATMG", "K", "SATK", "P", "SATB", "AL", "SATAL",
+        "S", "HAL", "SB", "B", "ZN", "MN", "CU", "FE", "MO_2", "CTC_2",
+        "PHCACL2_2", "AL_2", "SATB_2",
+    ]
+    soil = csv_bytes(
+        soil_columns,
+        [
+            {
+                "AMOSTRA": "1", "ARGILA": "20,0", "SILTE": "30,0", "AREIA": "50,0",
+                "MO": "4,5", "CTC": "25,0", "CTCE": "20,0", "PHCACL2": "5,2",
+                "CA": "12,0", "SATCA": "48,0", "MG": "3,0", "SATMG": "12,0",
+                "K": "1,0", "SATK": "4,0", "P": "10,0", "SATB": "64,0",
+                "AL": "0,5", "SATAL": "2,0", "S": "6,0", "HAL": "9,0", "SB": "16,0",
+                "B": "0,2", "ZN": "1,0", "MN": "5,0", "CU": "0,5", "FE": "30,0",
+                "MO_2": "4,8", "CTC_2": "26,0", "PHCACL2_2": "5,4", "AL_2": "0,3",
+                "SATB_2": "66,0",
+            },
+            {
+                "AMOSTRA": "2", "ARGILA": "25,0", "SILTE": "25,0", "AREIA": "50,0",
+                "MO": "5,0", "CTC": "27,0", "CTCE": "21,0", "PHCACL2": "5,5",
+                "CA": "13,0", "SATCA": "48,1", "MG": "3,2", "SATMG": "11,9",
+                "K": "1,1", "SATK": "4,1", "P": "11,0", "SATB": "64,1",
+                "AL": "0,4", "SATAL": "1,9", "S": "6,3", "HAL": "9,5", "SB": "17,3",
+                "B": "0,3", "ZN": "1,2", "MN": "5,5", "CU": "0,6", "FE": "32,0",
+                "MO_2": "5,1", "CTC_2": "27,5", "PHCACL2_2": "5,6", "AL_2": "0,2",
+                "SATB_2": "67,0",
+            },
+        ],
+        delimiter=";",
+    )
     return {
         "fields.csv": fields,
         "service_orders.csv": service_order_catalog,
@@ -140,4 +172,5 @@ def presentation_package() -> dict[str, bytes]:
         "LAYER_MAP_PLANTING.csv": planting,
         "LAYER_MAP_FERTILIZATION.csv": fertilization,
         "service_orders_fields.csv": service_order_fields,
+        "soil_analysis.csv": soil,
     }
