@@ -41,3 +41,22 @@ export async function uploadDataset(files) {
 
   return payload
 }
+
+export async function runDiagnostic(tool, arguments_, { signal } = {}) {
+  const response = await fetch(`${API_BASE_URL}/api/diagnostics/tools`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tool, arguments: arguments_ }),
+    signal,
+  })
+  const payload = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new ApiError(
+      response.status === 404
+        ? 'Diagnóstico indisponível. Use o ambiente de desenvolvimento e importe o pacote novamente se a sessão expirou.'
+        : typeof payload?.detail === 'string' ? payload.detail : 'Não foi possível validar esta comparação.',
+      response.status, payload,
+    )
+  }
+  return payload
+}

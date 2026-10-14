@@ -1,46 +1,47 @@
 import { describe, expect, it } from 'vitest'
-
-import {
-  COMPARISON_PREVIEW,
-  INVESTIGATION_PREVIEW,
-  INVESTIGATION_TABS,
-  PREVIEW_NOTICE,
-  PREVIEW_FIELDS,
-} from '../src/mocks/preview-data.js'
+import preview from '../src/mocks/analytics-preview.json'
 import { NAV_ITEMS } from '../src/ui/navigation.js'
 
-describe('navigable preview contracts', () => {
+describe('local analytical preview contracts', () => {
   it('exposes the three application areas in order', () => {
     expect(NAV_ITEMS.map((item) => item.id)).toEqual(['data', 'comparison', 'investigation'])
   })
 
-  it('keeps comparison mock references internally consistent', () => {
-    const fieldIds = PREVIEW_FIELDS.map((field) => field.id)
-
-    expect(fieldIds).toContain(COMPARISON_PREVIEW.targetId)
-    expect(fieldIds).toContain(COMPARISON_PREVIEW.referenceId)
-    expect(COMPARISON_PREVIEW.criteria).toHaveLength(4)
+  it('keeps every pair, field and comparison internally consistent', () => {
+    const fieldIds = preview.dataset.fields.map((field) => field.field_id)
+    for (const pair of preview.dataset.valid_pairs) {
+      expect(fieldIds).toContain(pair.target_field_id)
+      expect(fieldIds).toContain(pair.reference_field_id)
+      const result = preview.comparisons[`${pair.target_field_id}:${pair.reference_field_id}`]
+      expect(result.validation.allowed).toBe(true)
+      expect(result.validation.criteria).toHaveLength(5)
+      expect(result.ndvi.target_field_id).toBe(pair.target_field_id)
+    }
   })
 
-  it('provides every investigation preview panel without claiming a real result', () => {
-    expect(INVESTIGATION_TABS.map((tab) => tab.id)).toEqual([
-      'overview', 'soil', 'evidence', 'chart', 'methods', 'limitations',
-    ])
-    expect(INVESTIGATION_PREVIEW.summary).toContain('composição demonstrativa')
-    expect(INVESTIGATION_PREVIEW.highlights).toHaveLength(4)
+  it('has unique evidence IDs in each displayed comparison', () => {
+    for (const result of Object.values(preview.comparisons)) {
+      const items = [...Object.values(result), preview.soil_summary, preview.soil_summary_2, preview.soil_groups]
+      expect(new Set(items.map((item) => item.evidence_id)).size).toBe(items.length)
+    }
   })
 
-  it('labels both future screens as a preview with mocked data', () => {
-    expect(PREVIEW_NOTICE.label).toBe('Prévia · dados mocados')
-    expect(PREVIEW_NOTICE.detail).toContain('backend')
-    expect(PREVIEW_NOTICE.detail).toContain('Gemini')
+  it('keeps soil evidence at dataset scope with undocumented units', () => {
+    for (const evidence of [preview.soil_summary, preview.soil_summary_2, preview.soil_groups]) {
+      expect(evidence.scope).toBe('dataset')
+      expect(evidence).not.toHaveProperty('target_field_id')
+      expect(evidence.metrics.every((metric) => metric.unit === null)).toBe(true)
+    }
   })
 
-  it('provides chart-ready mocked soil and NDVI contracts', () => {
-    expect(INVESTIGATION_PREVIEW.soil.quality).toHaveLength(4)
-    expect(INVESTIGATION_PREVIEW.soil.metrics.length).toBeGreaterThanOrEqual(4)
-    expect(INVESTIGATION_PREVIEW.soil.metrics.every((metric) => metric.group1.plot.length === 5)).toBe(true)
-    expect(INVESTIGATION_PREVIEW.soil.texture.samples.every((sample) => sample.sand + sample.silt + sample.clay === 100)).toBe(true)
-    expect(INVESTIGATION_PREVIEW.ndvi.points.length).toBeGreaterThanOrEqual(8)
+  it('provides traceable numeric chart data instead of decorative widths', () => {
+    const summary = preview.soil_summary
+    expect(summary.metrics.every((metric) => metric.source_files.includes('soil_analysis.csv'))).toBe(true)
+    for (const sample of summary.texture.samples) {
+      expect(sample.sand + sample.silt + sample.clay).toBeCloseTo(100)
+      expect(sample.original_total).toBeGreaterThanOrEqual(95)
+      expect(sample.original_total).toBeLessThanOrEqual(105)
+    }
+    expect(preview.comparisons['103144:103145'].ndvi.series).toHaveLength(5)
   })
 })

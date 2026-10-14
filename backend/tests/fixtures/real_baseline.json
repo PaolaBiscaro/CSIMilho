@@ -1,0 +1,19 @@
+{
+  "validated_on": "2026-10-13",
+  "sha256": {
+    "fields.csv": "4e0b0ca61c7d3a441f9659d3de3e29a299358d94616e83408af79e6403e3a8dd",
+    "service_orders.csv": "d865a89470ff17b4405515d10516a1f6bc9ae4649720ee2d808438304b12eb2e",
+    "ndvi_metadata.csv": "04757926bbf2937964db4c0bb0c4d855be42a30683767cb7c43ded2901b9c314",
+    "LAYER_MAP_PLANTING.csv": "64122548f7553fb3adb390079452dabb9dcbc60cbc4d9d778caf65d70f8c28b6",
+    "LAYER_MAP_FERTILIZATION.csv": "cbc84cc9945ae1c3965f16c6e3fc4905462f89dfa9a33de16eee9ec7df130c65",
+    "service_orders_fields.csv": "125065bf54abe56b43549932944ec2e19d73b1f3f91cdd002cb4d6acfcdf2f3c",
+    "soil_analysis.csv": "cee2c4fb46c448982cb0a741e05550acc77d95e9bf2f879fdf1cdb936e316e49"
+  },
+  "operation_linkage": {"assigned_rows": 23738, "unassigned_rows": 9599, "invalid_geometry_rows": 30, "ambiguous_rows": 0},
+  "planting_audit": {"outside": 392, "assigned": 6039, "invalid_values": 189, "unknown_order": 7, "invalid_geometry": 1, "no_candidates": 312},
+  "fertilization_audit": {"outside": 1136, "assigned": 17699, "invalid_geometry": 29, "no_candidates": 7742, "unknown_order": 10},
+  "ndvi_mean_gap": -0.024985204048995083,
+  "initial_mean_gap": -0.024657318494122133,
+  "population": {"target": 61306.266516060496, "reference": 63629.02594991835},
+  "calagem_percent": {"target": 57.32713623684727, "reference": 97.50015004815795}
+}

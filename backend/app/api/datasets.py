@@ -5,12 +5,11 @@ from collections import Counter
 from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import JSONResponse
 
+from app.analytics.comparability import cultures, structural_pairs
 from app.config import get_settings
 from app.data.contracts import (
     DatasetStatus,
     DatasetValidationResponse,
-    FieldManagement,
-    FieldPurpose,
     FileStatus,
     FileValidation,
     OperationLinkage,
@@ -220,32 +219,6 @@ def _process_package(package: dict[str, bytes]) -> DatasetValidationResponse:
     )
 
 
-def _build_structural_pairs(fields) -> list[ValidPair]:
-    pairs: list[ValidPair] = []
-    for target in fields:
-        for reference in fields:
-            if target.field_id == reference.field_id:
-                continue
-            if target.management is not FieldManagement.DIGITAL:
-                continue
-            if reference.management is not FieldManagement.CONVENTIONAL:
-                continue
-            if target.purpose is FieldPurpose.UNKNOWN or target.purpose is not reference.purpose:
-                continue
-            if target.management is FieldManagement.UNKNOWN or reference.management is FieldManagement.UNKNOWN:
-                continue
-            if target.management is reference.management:
-                continue
-            pairs.append(
-                ValidPair(
-                    target_field_id=target.field_id,
-                    reference_field_id=reference.field_id,
-                    purpose=target.purpose,
-                )
-            )
-    return pairs
-
-
 def _build_available_pairs(fields, ndvi_frame, planting_frame, fertilization_frame) -> list[ValidPair]:
     ndvi_fields = set(ndvi_frame.get("field_id", []))
     planting_fields = set(planting_frame.get("field_id", []))
@@ -253,9 +226,16 @@ def _build_available_pairs(fields, ndvi_frame, planting_frame, fertilization_fra
     available_fields = ndvi_fields & planting_fields & fertilization_fields
     return [
         pair
-        for pair in _build_structural_pairs(fields)
+        for pair in structural_pairs(fields)
         if pair.target_field_id in available_fields and pair.reference_field_id in available_fields
+        and _compatible_cultures(planting_frame, pair)
     ]
+
+
+def _compatible_cultures(planting_frame, pair) -> bool:
+    target = cultures(planting_frame.loc[planting_frame.field_id == pair.target_field_id])
+    reference = cultures(planting_frame.loc[planting_frame.field_id == pair.reference_field_id])
+    return not target or not reference or target == reference
 
 
 def _sum_operation_linkage(*items: OperationLinkage) -> OperationLinkage:

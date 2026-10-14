@@ -292,128 +292,132 @@ Este bloco foi solicitado após `R1.06` e também deve terminar antes de `W2.01`
 
 ### W2.01 — Criar protocolo comum de evidência `[P0]`
 
-- [ ] Criar schema base de evidência.
-- [ ] Padronizar ID, unidade, fontes, método, observações e versão.
-- [ ] Criar gerador determinístico de IDs dentro da investigação.
+- [x] Criar schema base de evidência.
+- [x] Padronizar ID, unidade, fontes, método, observações e versão.
+- [x] Criar gerador determinístico de IDs dentro da investigação.
 
 **Verificar:** todas as futuras ferramentas conseguem herdar ou compor o contrato.
 
+**Contrato implementado:** `Evidence` em `backend/app/harness/schemas.py` exige `evidence_id`, `unit` (aceita nulo), `source_files`, `method`, `observation_count` (aceita nulo) e `tool_version`; inclui `notes` e campos opcionais de métrica, alvo, referência e diferença. Resultados específicos podem herdar ou compor esse contrato, preservando métricas múltiplas e o escopo geral do solo. `EvidenceIdGenerator` em `backend/app/analytics/evidence.py` deve ser instanciado uma vez por investigação e compartilhado entre suas ferramentas: cada prefixo possui sequência própria a partir de `001`, reproduzível para a mesma ordem de solicitações. Os IDs são locais à investigação; referências entre relatórios precisam também de `investigation_id`.
+
 ### W2.02 — Implementar pares e comparabilidade `[P0]`
 
-- [ ] Gerar somente pares com mesma finalidade e manejos distintos.
-- [ ] Implementar os cinco critérios do score.
-- [ ] Bloquear incompatibilidade de cultura ou finalidade.
+- [x] Gerar somente pares com mesma finalidade e manejos distintos.
+- [x] Implementar os cinco critérios do score.
+- [x] Bloquear incompatibilidade de cultura ou finalidade.
 
 **Verificar:** Grão × Grão e Silagem × Silagem são válidos; Grão × Silagem é bloqueado.
 
 ### W2.03 — Implementar `compare_ndvi` `[P0]`
 
-- [ ] Filtrar alvo, referência e período.
-- [ ] Parear datas por inner join.
-- [ ] Calcular médias, gaps e série do gráfico.
-- [ ] Produzir evidência validada.
+- [x] Filtrar alvo, referência e período.
+- [x] Parear datas por inner join.
+- [x] Calcular médias, gaps e série do gráfico.
+- [x] Produzir evidência validada.
 
 **Verificar:** sinal de `target - reference` está correto e datas ausentes não são interpoladas.
 
 ### W2.04 — Testar `compare_ndvi` com fixture pequena `[P0]`
 
-- [ ] Criar fixture manual com datas pareadas e não pareadas.
-- [ ] Testar quantidade de pares, média e gap.
-- [ ] Testar erro quando não há pares suficientes.
+- [x] Criar fixture manual com datas pareadas e não pareadas.
+- [x] Testar quantidade de pares, média e gap.
+- [x] Testar erro quando não há pares suficientes.
 
 **Verificar:** testes independem dos números do protótipo.
 
 ### W2.05 — Implementar `check_initial_condition` `[P0]`
 
-- [ ] Encontrar a data de corte do plantio.
-- [ ] Filtrar NDVI pareado anterior ao corte.
-- [ ] Aplicar mínimo de três pares e limiar de 0,02.
-- [ ] Marcar regra como heurística operacional.
+- [x] Encontrar a data de corte do plantio.
+- [x] Filtrar NDVI pareado anterior ao corte.
+- [x] Aplicar mínimo de três pares e limiar de 0,02.
+- [x] Marcar regra como heurística operacional.
 
 **Verificar:** casos diferente, semelhante e indisponível têm testes.
 
 ### W2.06 — Implementar `compare_population` `[P0]`
 
-- [ ] Calcular média ponderada por área.
-- [ ] Calcular diferença absoluta e percentual.
-- [ ] Contar linhas válidas e descartadas.
-- [ ] Produzir evidência.
+- [x] Calcular média ponderada por área.
+- [x] Calcular diferença absoluta e percentual.
+- [x] Contar linhas válidas e descartadas.
+- [x] Produzir evidência.
 
 **Verificar:** teste demonstra que média simples e ponderada produzem resultados diferentes.
 
 ### W2.07 — Implementar `application_compliance` `[P0]`
 
-- [ ] Agrupar por talhão e operação.
-- [ ] Ponderar doses pela área.
-- [ ] Calcular conformidade sem limitar a 100%.
-- [ ] Priorizar CALAGEM no cenário da demonstração.
+- [x] Agrupar por talhão e operação.
+- [x] Ponderar doses pela área.
+- [x] Calcular conformidade sem limitar a 100%.
+- [x] Priorizar CALAGEM no cenário da demonstração.
 
 **Verificar:** testar subaplicação, aplicação exata, sobreaplicação e dose configurada zero.
 
 ### W2.08 — Implementar `summarize_soil_analysis` `[P0]`
 
-- [ ] Calcular contagem, média, mediana, mínimo, máximo, Q1 e Q3 por métrica.
-- [ ] Separar textura, fertilidade/acidez, bases e micronutrientes.
-- [ ] Expor a unidade como nula quando não documentada.
-- [ ] Não aplicar classificação agronômica de suficiência.
-- [ ] Produzir contrato de distribuição por métrica com mínimo, Q1, mediana, Q3, máximo, contagem válida e fonte.
-- [ ] Produzir contrato de composição de textura somente para amostras cuja soma válida esteja dentro da tolerância.
+- [x] Calcular contagem, média, mediana, mínimo, máximo, Q1 e Q3 por métrica.
+- [x] Separar textura, fertilidade/acidez, bases e micronutrientes.
+- [x] Expor a unidade como nula quando não documentada.
+- [x] Não aplicar classificação agronômica de suficiência.
+- [x] Produzir contrato de distribuição por métrica com mínimo, Q1, mediana, Q3, máximo, contagem válida e fonte.
+- [x] Produzir contrato de composição de textura somente para amostras cuja soma válida esteja dentro da tolerância.
 
 **Verificar:** testes usam fixture manual e confirmam que nulos não viram zero.
 
 ### W2.09 — Implementar `compare_soil_measurement_groups` `[P0]`
 
-- [ ] Parear Conjunto 1 e Conjunto 2 por `AMOSTRA`.
-- [ ] Calcular `Conjunto 2 - Conjunto 1` por amostra e métrica.
-- [ ] Calcular mediana do delta e quantidade de pares válidos.
-- [ ] Incluir a limitação sobre o significado desconhecido de `_2`.
-- [ ] Produzir série pareada própria para barras agrupadas ou pontos conectados, sem misturar unidades.
+- [x] Parear Conjunto 1 e Conjunto 2 por `AMOSTRA`.
+- [x] Calcular `Conjunto 2 - Conjunto 1` por amostra e métrica.
+- [x] Calcular mediana do delta e quantidade de pares válidos.
+- [x] Incluir a limitação sobre o significado desconhecido de `_2`.
+- [x] Produzir série pareada própria para barras agrupadas ou pontos conectados, sem misturar unidades.
 
 **Verificar:** o retorno nunca usa os termos profundidade, camada ou horizonte como fato.
 
 ### W2.10 — Criar registry local das ferramentas `[P0]`
 
-- [ ] Registrar nome, descrição, schema de parâmetros e função Python.
-- [ ] Expor somente as sete ferramentas previstas.
-- [ ] Adicionar versão por ferramenta.
+- [x] Registrar nome, descrição, schema de parâmetros e função Python.
+- [x] Expor somente as sete ferramentas previstas.
+- [x] Adicionar versão por ferramenta.
 
 **Verificar:** lookup aceita nomes permitidos e rejeita qualquer outro.
 
 ### W2.11 — Criar endpoint temporário de diagnóstico `[P1]`
 
-- [ ] Criar endpoint disponível apenas em desenvolvimento para executar ferramentas sem Gemini.
-- [ ] Não aceitar caminho de arquivo nem DataFrame no corpo.
-- [ ] Desabilitar no modo de apresentação ou produção.
+- [x] Criar endpoint disponível apenas em desenvolvimento para executar ferramentas sem Gemini.
+- [x] Não aceitar caminho de arquivo nem DataFrame no corpo.
+- [x] Desabilitar no modo de apresentação ou produção.
 
 **Verificar:** cada ferramenta pode ser testada pelo dataset e IDs selecionados.
 
 ### W2.12 — Construir a tela de comparação `[P0]`
 
-- [ ] Preencher selects com pares retornados pelo backend.
-- [ ] Atualizar pergunta padrão ao trocar os talhões.
-- [ ] Mostrar comparabilidade e análises disponíveis.
-- [ ] Bloquear botão quando o par não for permitido.
+- [x] Preencher selects com pares retornados pelo backend.
+- [x] Atualizar pergunta padrão ao trocar os talhões.
+- [x] Mostrar comparabilidade e análises disponíveis.
+- [x] Bloquear botão quando o par não for permitido.
 
 **Verificar:** a tela nunca permite Grão × Silagem como comparação executável.
 
 ### W2.13 — Construir componentes dos gráficos analíticos `[P0]`
 
-- [ ] Criar gráfico Chart.js a partir do contrato de série.
-- [ ] Mostrar alvo e referência de NDVI com legenda e tooltip.
-- [ ] Criar componentes reutilizáveis para distribuição, comparação pareada e composição de textura do solo.
-- [ ] Incluir seletor de família/métrica, unidade, contagem, fonte, estado vazio e alternativa tabular acessível.
-- [ ] Impedir mapa ou linha temporal de solo enquanto não existirem coordenadas ou datas.
-- [ ] Destruir instância anterior ao renderizar outra análise.
+- [x] Criar gráfico Chart.js a partir do contrato de série.
+- [x] Mostrar alvo e referência de NDVI com legenda e tooltip.
+- [x] Criar componentes reutilizáveis para distribuição, comparação pareada e composição de textura do solo.
+- [x] Incluir seletor de família/métrica, unidade, contagem, fonte, estado vazio e alternativa tabular acessível.
+- [x] Impedir mapa ou linha temporal de solo enquanto não existirem coordenadas ou datas.
+- [x] Destruir instância anterior ao renderizar outra análise.
 
 **Verificar:** os gráficos funcionam com fixtures, reproduzem exatamente as evidências, não misturam unidades e não duplicam canvas após nova seleção.
 
 ### W2.14 — Validar o baseline do pacote real `[P0]`
 
-- [ ] Executar as seis análises nos dados da apresentação.
-- [ ] Confirmar oito amostras de solo válidas no escopo geral.
-- [ ] Comparar com os valores aproximados da especificação.
-- [ ] Investigar qualquer diferença antes de alterar tolerâncias.
-- [ ] Criar teste de regressão com resultados confirmados.
+**Retomada e concluída em 2026-10-13 por solicitação do usuário**, com os sete CSVs de `/Users/lucashygidio/Downloads/FarmLab/`. Auditoria, diferenças históricas e reprodução em [BASELINE_W2.md](BASELINE_W2.md).
+
+- [x] Executar as seis análises nos dados da apresentação.
+- [x] Confirmar oito amostras de solo válidas no escopo geral.
+- [x] Comparar com os valores aproximados da especificação.
+- [x] Investigar qualquer diferença antes de alterar tolerâncias.
+- [x] Criar teste de regressão com resultados confirmados.
 
 **Saída:** ferramentas produzem fatos corretos sem Gemini.
 
@@ -768,3 +772,9 @@ Adicionar uma linha por tarefa concluída.
 | 2026-10-07 | R1.07 | Os seis documentos-base foram atualizados antes do frontend com a direção visual, o contrato das prévias e os limites dos mocks. | Revisão cruzada de HANDOFF, PIPELINES, PLANEJAMENTO, PROJETO, README e SPEC. | Dados demonstrativos permanecem isolados do backend e não contam como evidência. |
 | 2026-10-07 | R1.08 | Shell de dashboard responsivo e prévias clicáveis de Comparação e Investigação concluídos, mantendo `#895129`. | Pytest: 56 passaram; Vitest: 7 passaram; Vite build passou; Chrome validado em 1440/820/390, sem overflow horizontal. | W2.01 não foi iniciado; os mocks devem ser substituídos apenas por contratos analíticos validados. |
 | 2026-10-07 | Direção futura de gráficos | Documentos atualizados para priorizar um dashboard analítico de solo mais rico nas Semanas 2 e 4, mantendo a prévia atual como demonstração simples. | Revisão cruzada de SPEC, PROJETO, PIPELINES, PLANEJAMENTO, HANDOFF e README; nenhuma implementação executada. | Os gráficos futuros dependem das evidências reais e não podem inventar mapa, tempo, profundidade, unidade ou classificação agronômica. |
+| 2026-10-11 | W2.01 | Contrato comum de evidência com metadados obrigatórios, valores finitos ou nulos e gerador determinístico de IDs por prefixo, local à investigação; verificada reutilização por herança/composição para as sete ferramentas previstas. | Em `backend/`: `.venv/bin/python -m pytest` — 108 passaram, incluindo 52 novos casos do protocolo; `git diff --check` sem erros. | Aviso de depreciação existente de Starlette/httpx; nenhuma dependência adicionada e W2.02 não iniciada. |
+| 2026-10-11 | W2.02–W2.09 | Pares nos dois sentidos, cinco critérios de comparabilidade e seis análises determinísticas com evidências tipadas; solo inclui quartis, pares por AMOSTRA e textura normalizada no backend somente para somas entre 95 e 105. | 23 casos manuais de analytics passaram: sinal e datas NDVI, corte pré-plantio, ponderação, divisão por zero, sobreaplicação, quartis, nulos e pares de solo. | NDVI exige ao menos uma data pareada; menos de cinco reduz o score e emite aviso. Baseline real adiado a pedido do usuário. |
+| 2026-10-11 | W2.10–W2.11 | Registry local fechado com sete ferramentas, parâmetros tipados e versão; diagnóstico local em `POST /api/diagnostics/tools`, bloqueado fora de development. | Suíte backend: 153 passaram; cobertura de todas as ferramentas, chamadas inválidas, IDs, parâmetros extras e ambientes presentation/production/test. | Sem SDK, chamadas externas, prompt ou harness de IA. Cada chamada isolada de diagnóstico tem IDs locais; um gerador pode ser compartilhado por um chamador futuro. |
+| 2026-10-12 | W2.12 | Tela de comparação usa somente talhões dos pares retornados pela API, atualiza a pergunta, mostra cinco critérios e análises disponíveis e bloqueia pares inválidos; diagnóstico local após importação e prévia sem upload claramente separados. | 8 testes de comparação passaram, incluindo Grão × Silagem, resposta atrasada, erro, par ausente e inversão; navegador confirmou importação dos sete CSVs artificiais, score 3/5 e bloqueio do par inválido. | Consulta local disponível em development; o botão abre gráficos demonstrativos, sem executar investigação de IA. |
+| 2026-10-12 | W2.13 | Chart.js para NDVI, distribuição de cinco números, pares de solo e textura; filtros de família/métrica/conjunto, unidades, contagens, fontes, estados vazios e tabelas acessíveis; instâncias destruídas em trocas de filtro, aba e página. Mocks decorativos substituídos por contratos numéricos locais validados no backend. | Pytest: 154 passaram; Vitest: 25 passaram; `pnpm build` e `git diff --check` passaram. Navegador: gráficos de solo/NDVI, abas e larguras de desktop/tablet/celular sem overflow horizontal ou erros de console. | W2.14 permanece pendente por solicitação do usuário. Nenhuma integração Gemini ou tarefa W3 iniciada; aviso de depreciação Starlette/httpx já existente. |
+| 2026-10-13 | W2.14 | Sete CSVs reais de FarmLab importados pela API; seis análises e comparabilidade conferidas por recálculo independente dos arquivos. Confirmadas 8 amostras, 29 pares NDVI, gap −0,024985204049, população 61.306,27/63.629,03 e calagem 57,327136%/97,500150%. Diferenças do protótipo investigadas e documentadas em BASELINE_W2.md; manifesto SHA-256 e nove regressões sem versionar CSV bruto. | `FARMLAB_REAL_DATA_DIR='/Users/lucashygidio/Downloads/FarmLab' .venv/bin/python -m pytest` em backend: 163 passaram; baseline isolado: 9 passaram; sem variável: 9 ignorados explicitamente. Vitest: 25 passaram; build Vite e `git diff --check` aprovados. | Semana 2 concluída; W3 não iniciada. Mantidos 15 avisos de importação e depreciação Starlette/httpx. Gráficos da investigação continuam demonstrativos; origem exata das aproximações antigas não verificável sem código do protótipo. |

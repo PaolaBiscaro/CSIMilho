@@ -1,0 +1,1739 @@
+{
+  "dataset": {
+    "fields": [
+      {
+        "field_id": "103144",
+        "farm_id": "25213",
+        "name": "Grão 4.0 - 19,3 ha",
+        "label": "Grão 4.0",
+        "purpose": "grain",
+        "management": "digital",
+        "centroid": {
+          "longitude": -49.98,
+          "latitude": -22.24
+        },
+        "geometry_available": true
+      },
+      {
+        "field_id": "103145",
+        "farm_id": "25213",
+        "name": "Grão Convecional - 20 ha",
+        "label": "Grão Convencional",
+        "purpose": "grain",
+        "management": "conventional",
+        "centroid": {
+          "longitude": -49.96,
+          "latitude": -22.24
+        },
+        "geometry_available": true
+      },
+      {
+        "field_id": "103146",
+        "farm_id": "25213",
+        "name": "Silagem 4.0 - 14,7 ha",
+        "label": "Silagem 4.0",
+        "purpose": "silage",
+        "management": "digital",
+        "centroid": {
+          "longitude": -49.94,
+          "latitude": -22.24
+        },
+        "geometry_available": true
+      },
+      {
+        "field_id": "103147",
+        "farm_id": "25213",
+        "name": "Silagem Convencional - 15 ha",
+        "label": "Silagem Convencional",
+        "purpose": "silage",
+        "management": "conventional",
+        "centroid": {
+          "longitude": -49.92,
+          "latitude": -22.24
+        },
+        "geometry_available": true
+      }
+    ],
+    "valid_pairs": [
+      {
+        "target_field_id": "103144",
+        "reference_field_id": "103145",
+        "purpose": "grain"
+      },
+      {
+        "target_field_id": "103145",
+        "reference_field_id": "103144",
+        "purpose": "grain"
+      },
+      {
+        "target_field_id": "103146",
+        "reference_field_id": "103147",
+        "purpose": "silage"
+      },
+      {
+        "target_field_id": "103147",
+        "reference_field_id": "103146",
+        "purpose": "silage"
+      }
+    ],
+    "soil": {
+      "sample_count": 2,
+      "scope": "dataset",
+      "measurement_groups": [
+        "group_1",
+        "group_2"
+      ]
+    }
+  },
+  "comparisons": {
+    "103144:103145": {
+      "validation": {
+        "evidence_id": "EV-COMP-001",
+        "unit": null,
+        "source_files": [
+          "fields.csv",
+          "LAYER_MAP_PLANTING.csv",
+          "LAYER_MAP_FERTILIZATION.csv",
+          "ndvi_metadata.csv"
+        ],
+        "method": "Um ponto por critério satisfeito; critério desconhecido não pontua. Cultura ou finalidade incompatível e manejo não distinto bloqueiam o par.",
+        "observation_count": 5,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": null,
+        "target_value": null,
+        "reference_value": null,
+        "difference": null,
+        "target_field_id": "103144",
+        "reference_field_id": "103145",
+        "period": "full_season",
+        "warnings": [
+          "Pares estritamente anteriores à menor primeira data de plantio; mínimo de três pares; abs(gap) >= 0,02. Heurística operacional, não teste de significância."
+        ],
+        "allowed": true,
+        "score": 4,
+        "max_score": 5,
+        "criteria": [
+          {
+            "id": "same_crop",
+            "label": "Mesma cultura",
+            "satisfied": true,
+            "detail": "Cultura explícita nas operações: MILHO"
+          },
+          {
+            "id": "same_purpose",
+            "label": "Mesma finalidade",
+            "satisfied": true,
+            "detail": "grain × grain"
+          },
+          {
+            "id": "paired_dates",
+            "label": "Ao menos cinco datas pareadas",
+            "satisfied": true,
+            "detail": "5 datas pareadas."
+          },
+          {
+            "id": "operations",
+            "label": "Plantio e fertilização nos dois talhões",
+            "satisfied": true,
+            "detail": "Disponibilidade no período selecionado."
+          },
+          {
+            "id": "initial_condition",
+            "label": "Condição inicial sem gap relevante",
+            "satisfied": false,
+            "detail": "Pares estritamente anteriores à menor primeira data de plantio; mínimo de três pares; abs(gap) >= 0,02. Heurística operacional, não teste de significância."
+          }
+        ],
+        "available_analyses": [
+          "compare_ndvi",
+          "check_initial_condition",
+          "compare_population",
+          "application_compliance",
+          "summarize_soil_analysis",
+          "compare_soil_measurement_groups"
+        ],
+        "common_operations": [
+          "CALAGEM"
+        ],
+        "paired_dates": 5
+      },
+      "ndvi": {
+        "evidence_id": "EV-NDVI-001",
+        "unit": "ndvi",
+        "source_files": [
+          "ndvi_metadata.csv",
+          "fields.csv"
+        ],
+        "method": "Inner join por data, sem interpolação; médias e gap alvo menos referência. Mínimo de uma data; menos de cinco reduz comparabilidade.",
+        "observation_count": 5,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "mean_gap",
+        "target_value": 0.4,
+        "reference_value": 0.5,
+        "difference": -0.09999999999999999,
+        "target_field_id": "103144",
+        "reference_field_id": "103145",
+        "period": "full_season",
+        "warnings": [],
+        "paired_dates": 5,
+        "target_mean": 0.4,
+        "reference_mean": 0.5,
+        "mean_gap": -0.09999999999999999,
+        "negative_dates": 5,
+        "positive_dates": 0,
+        "equal_dates": 0,
+        "series": [
+          {
+            "date": "2024-12-01",
+            "target_ndvi": 0.2,
+            "reference_ndvi": 0.3,
+            "gap": -0.09999999999999998
+          },
+          {
+            "date": "2024-12-02",
+            "target_ndvi": 0.3,
+            "reference_ndvi": 0.4,
+            "gap": -0.10000000000000003
+          },
+          {
+            "date": "2024-12-03",
+            "target_ndvi": 0.4,
+            "reference_ndvi": 0.5,
+            "gap": -0.09999999999999998
+          },
+          {
+            "date": "2024-12-04",
+            "target_ndvi": 0.5,
+            "reference_ndvi": 0.6,
+            "gap": -0.09999999999999998
+          },
+          {
+            "date": "2024-12-05",
+            "target_ndvi": 0.6,
+            "reference_ndvi": 0.7,
+            "gap": -0.09999999999999998
+          }
+        ]
+      },
+      "initial": {
+        "evidence_id": "EV-INITIAL-001",
+        "unit": "ndvi",
+        "source_files": [
+          "ndvi_metadata.csv",
+          "LAYER_MAP_PLANTING.csv",
+          "fields.csv"
+        ],
+        "method": "Pares estritamente anteriores à menor primeira data de plantio; mínimo de três pares; abs(gap) >= 0,02. Heurística operacional, não teste de significância.",
+        "observation_count": 5,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "initial_mean_gap",
+        "target_value": null,
+        "reference_value": null,
+        "difference": -0.09999999999999999,
+        "target_field_id": "103144",
+        "reference_field_id": "103145",
+        "period": "full_season",
+        "warnings": [],
+        "available": true,
+        "cutoff_date": "2025-01-01",
+        "paired_dates": 5,
+        "mean_gap": -0.09999999999999999,
+        "threshold": 0.02,
+        "different": true,
+        "rule_id": "initial_gap_heuristic"
+      },
+      "population": {
+        "evidence_id": "EV-POP-001",
+        "unit": "plants/ha",
+        "source_files": [
+          "LAYER_MAP_PLANTING.csv",
+          "service_orders.csv",
+          "service_orders_fields.csv",
+          "fields.csv"
+        ],
+        "method": "Σ(população × área) / Σ(área), por talhão; diferença percentual = (alvo − referência) / referência × 100. Contagens referem-se ao recorte normalizado; descartes de importação permanecem nos avisos do pacote.",
+        "observation_count": 3,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "population_per_ha",
+        "target_value": 25.0,
+        "reference_value": 20.0,
+        "difference": 5.0,
+        "target_field_id": "103144",
+        "reference_field_id": "103145",
+        "period": "full_season",
+        "warnings": [],
+        "target_population_per_ha": 25.0,
+        "reference_population_per_ha": 20.0,
+        "difference_percent": 25.0,
+        "target_rows": {
+          "valid": 2,
+          "discarded": 0
+        },
+        "reference_rows": {
+          "valid": 1,
+          "discarded": 0
+        }
+      },
+      "application": {
+        "evidence_id": "EV-APP-CALAGEM-001",
+        "unit": "%",
+        "source_files": [
+          "LAYER_MAP_FERTILIZATION.csv",
+          "service_orders.csv",
+          "service_orders_fields.csv",
+          "fields.csv"
+        ],
+        "method": "Doses ponderadas por área; conformidade = aplicada / configurada × 100, sem teto de 100%. Diferença em pontos percentuais. Contagens referem-se ao recorte normalizado.",
+        "observation_count": 3,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "application_compliance",
+        "target_value": 42.857142857142854,
+        "reference_value": 100.0,
+        "difference": -57.142857142857146,
+        "target_field_id": "103144",
+        "reference_field_id": "103145",
+        "period": "full_season",
+        "warnings": [],
+        "operation": "CALAGEM",
+        "target_compliance_percent": 42.857142857142854,
+        "reference_compliance_percent": 100.0,
+        "target_applied_dose": 75.0,
+        "reference_applied_dose": 100.0,
+        "target_configured_dose": 175.0,
+        "reference_configured_dose": 100.0,
+        "target_rows": {
+          "valid": 2,
+          "discarded": 0
+        },
+        "reference_rows": {
+          "valid": 1,
+          "discarded": 0
+        },
+        "dose_unit": "kg/ha"
+      }
+    },
+    "103145:103144": {
+      "validation": {
+        "evidence_id": "EV-COMP-001",
+        "unit": null,
+        "source_files": [
+          "fields.csv",
+          "LAYER_MAP_PLANTING.csv",
+          "LAYER_MAP_FERTILIZATION.csv",
+          "ndvi_metadata.csv"
+        ],
+        "method": "Um ponto por critério satisfeito; critério desconhecido não pontua. Cultura ou finalidade incompatível e manejo não distinto bloqueiam o par.",
+        "observation_count": 5,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": null,
+        "target_value": null,
+        "reference_value": null,
+        "difference": null,
+        "target_field_id": "103145",
+        "reference_field_id": "103144",
+        "period": "full_season",
+        "warnings": [
+          "Pares estritamente anteriores à menor primeira data de plantio; mínimo de três pares; abs(gap) >= 0,02. Heurística operacional, não teste de significância."
+        ],
+        "allowed": true,
+        "score": 4,
+        "max_score": 5,
+        "criteria": [
+          {
+            "id": "same_crop",
+            "label": "Mesma cultura",
+            "satisfied": true,
+            "detail": "Cultura explícita nas operações: MILHO"
+          },
+          {
+            "id": "same_purpose",
+            "label": "Mesma finalidade",
+            "satisfied": true,
+            "detail": "grain × grain"
+          },
+          {
+            "id": "paired_dates",
+            "label": "Ao menos cinco datas pareadas",
+            "satisfied": true,
+            "detail": "5 datas pareadas."
+          },
+          {
+            "id": "operations",
+            "label": "Plantio e fertilização nos dois talhões",
+            "satisfied": true,
+            "detail": "Disponibilidade no período selecionado."
+          },
+          {
+            "id": "initial_condition",
+            "label": "Condição inicial sem gap relevante",
+            "satisfied": false,
+            "detail": "Pares estritamente anteriores à menor primeira data de plantio; mínimo de três pares; abs(gap) >= 0,02. Heurística operacional, não teste de significância."
+          }
+        ],
+        "available_analyses": [
+          "compare_ndvi",
+          "check_initial_condition",
+          "compare_population",
+          "application_compliance",
+          "summarize_soil_analysis",
+          "compare_soil_measurement_groups"
+        ],
+        "common_operations": [
+          "CALAGEM"
+        ],
+        "paired_dates": 5
+      },
+      "ndvi": {
+        "evidence_id": "EV-NDVI-001",
+        "unit": "ndvi",
+        "source_files": [
+          "ndvi_metadata.csv",
+          "fields.csv"
+        ],
+        "method": "Inner join por data, sem interpolação; médias e gap alvo menos referência. Mínimo de uma data; menos de cinco reduz comparabilidade.",
+        "observation_count": 5,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "mean_gap",
+        "target_value": 0.5,
+        "reference_value": 0.4,
+        "difference": 0.09999999999999999,
+        "target_field_id": "103145",
+        "reference_field_id": "103144",
+        "period": "full_season",
+        "warnings": [],
+        "paired_dates": 5,
+        "target_mean": 0.5,
+        "reference_mean": 0.4,
+        "mean_gap": 0.09999999999999999,
+        "negative_dates": 0,
+        "positive_dates": 5,
+        "equal_dates": 0,
+        "series": [
+          {
+            "date": "2024-12-01",
+            "target_ndvi": 0.3,
+            "reference_ndvi": 0.2,
+            "gap": 0.09999999999999998
+          },
+          {
+            "date": "2024-12-02",
+            "target_ndvi": 0.4,
+            "reference_ndvi": 0.3,
+            "gap": 0.10000000000000003
+          },
+          {
+            "date": "2024-12-03",
+            "target_ndvi": 0.5,
+            "reference_ndvi": 0.4,
+            "gap": 0.09999999999999998
+          },
+          {
+            "date": "2024-12-04",
+            "target_ndvi": 0.6,
+            "reference_ndvi": 0.5,
+            "gap": 0.09999999999999998
+          },
+          {
+            "date": "2024-12-05",
+            "target_ndvi": 0.7,
+            "reference_ndvi": 0.6,
+            "gap": 0.09999999999999998
+          }
+        ]
+      },
+      "initial": {
+        "evidence_id": "EV-INITIAL-001",
+        "unit": "ndvi",
+        "source_files": [
+          "ndvi_metadata.csv",
+          "LAYER_MAP_PLANTING.csv",
+          "fields.csv"
+        ],
+        "method": "Pares estritamente anteriores à menor primeira data de plantio; mínimo de três pares; abs(gap) >= 0,02. Heurística operacional, não teste de significância.",
+        "observation_count": 5,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "initial_mean_gap",
+        "target_value": null,
+        "reference_value": null,
+        "difference": 0.09999999999999999,
+        "target_field_id": "103145",
+        "reference_field_id": "103144",
+        "period": "full_season",
+        "warnings": [],
+        "available": true,
+        "cutoff_date": "2025-01-01",
+        "paired_dates": 5,
+        "mean_gap": 0.09999999999999999,
+        "threshold": 0.02,
+        "different": true,
+        "rule_id": "initial_gap_heuristic"
+      },
+      "population": {
+        "evidence_id": "EV-POP-001",
+        "unit": "plants/ha",
+        "source_files": [
+          "LAYER_MAP_PLANTING.csv",
+          "service_orders.csv",
+          "service_orders_fields.csv",
+          "fields.csv"
+        ],
+        "method": "Σ(população × área) / Σ(área), por talhão; diferença percentual = (alvo − referência) / referência × 100. Contagens referem-se ao recorte normalizado; descartes de importação permanecem nos avisos do pacote.",
+        "observation_count": 3,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "population_per_ha",
+        "target_value": 20.0,
+        "reference_value": 25.0,
+        "difference": -5.0,
+        "target_field_id": "103145",
+        "reference_field_id": "103144",
+        "period": "full_season",
+        "warnings": [],
+        "target_population_per_ha": 20.0,
+        "reference_population_per_ha": 25.0,
+        "difference_percent": -20.0,
+        "target_rows": {
+          "valid": 1,
+          "discarded": 0
+        },
+        "reference_rows": {
+          "valid": 2,
+          "discarded": 0
+        }
+      },
+      "application": {
+        "evidence_id": "EV-APP-CALAGEM-001",
+        "unit": "%",
+        "source_files": [
+          "LAYER_MAP_FERTILIZATION.csv",
+          "service_orders.csv",
+          "service_orders_fields.csv",
+          "fields.csv"
+        ],
+        "method": "Doses ponderadas por área; conformidade = aplicada / configurada × 100, sem teto de 100%. Diferença em pontos percentuais. Contagens referem-se ao recorte normalizado.",
+        "observation_count": 3,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "application_compliance",
+        "target_value": 100.0,
+        "reference_value": 42.857142857142854,
+        "difference": 57.142857142857146,
+        "target_field_id": "103145",
+        "reference_field_id": "103144",
+        "period": "full_season",
+        "warnings": [],
+        "operation": "CALAGEM",
+        "target_compliance_percent": 100.0,
+        "reference_compliance_percent": 42.857142857142854,
+        "target_applied_dose": 100.0,
+        "reference_applied_dose": 75.0,
+        "target_configured_dose": 100.0,
+        "reference_configured_dose": 175.0,
+        "target_rows": {
+          "valid": 1,
+          "discarded": 0
+        },
+        "reference_rows": {
+          "valid": 2,
+          "discarded": 0
+        },
+        "dose_unit": "kg/ha"
+      }
+    },
+    "103146:103147": {
+      "validation": {
+        "evidence_id": "EV-COMP-001",
+        "unit": null,
+        "source_files": [
+          "fields.csv",
+          "LAYER_MAP_PLANTING.csv",
+          "LAYER_MAP_FERTILIZATION.csv",
+          "ndvi_metadata.csv"
+        ],
+        "method": "Um ponto por critério satisfeito; critério desconhecido não pontua. Cultura ou finalidade incompatível e manejo não distinto bloqueiam o par.",
+        "observation_count": 5,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": null,
+        "target_value": null,
+        "reference_value": null,
+        "difference": null,
+        "target_field_id": "103146",
+        "reference_field_id": "103147",
+        "period": "full_season",
+        "warnings": [
+          "Pares estritamente anteriores à menor primeira data de plantio; mínimo de três pares; abs(gap) >= 0,02. Heurística operacional, não teste de significância."
+        ],
+        "allowed": true,
+        "score": 4,
+        "max_score": 5,
+        "criteria": [
+          {
+            "id": "same_crop",
+            "label": "Mesma cultura",
+            "satisfied": true,
+            "detail": "Cultura explícita nas operações: MILHO"
+          },
+          {
+            "id": "same_purpose",
+            "label": "Mesma finalidade",
+            "satisfied": true,
+            "detail": "silage × silage"
+          },
+          {
+            "id": "paired_dates",
+            "label": "Ao menos cinco datas pareadas",
+            "satisfied": true,
+            "detail": "5 datas pareadas."
+          },
+          {
+            "id": "operations",
+            "label": "Plantio e fertilização nos dois talhões",
+            "satisfied": true,
+            "detail": "Disponibilidade no período selecionado."
+          },
+          {
+            "id": "initial_condition",
+            "label": "Condição inicial sem gap relevante",
+            "satisfied": false,
+            "detail": "Pares estritamente anteriores à menor primeira data de plantio; mínimo de três pares; abs(gap) >= 0,02. Heurística operacional, não teste de significância."
+          }
+        ],
+        "available_analyses": [
+          "compare_ndvi",
+          "check_initial_condition",
+          "compare_population",
+          "application_compliance",
+          "summarize_soil_analysis",
+          "compare_soil_measurement_groups"
+        ],
+        "common_operations": [
+          "CALAGEM"
+        ],
+        "paired_dates": 5
+      },
+      "ndvi": {
+        "evidence_id": "EV-NDVI-001",
+        "unit": "ndvi",
+        "source_files": [
+          "ndvi_metadata.csv",
+          "fields.csv"
+        ],
+        "method": "Inner join por data, sem interpolação; médias e gap alvo menos referência. Mínimo de uma data; menos de cinco reduz comparabilidade.",
+        "observation_count": 5,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "mean_gap",
+        "target_value": 0.4,
+        "reference_value": 0.5,
+        "difference": -0.09999999999999999,
+        "target_field_id": "103146",
+        "reference_field_id": "103147",
+        "period": "full_season",
+        "warnings": [],
+        "paired_dates": 5,
+        "target_mean": 0.4,
+        "reference_mean": 0.5,
+        "mean_gap": -0.09999999999999999,
+        "negative_dates": 5,
+        "positive_dates": 0,
+        "equal_dates": 0,
+        "series": [
+          {
+            "date": "2024-12-01",
+            "target_ndvi": 0.2,
+            "reference_ndvi": 0.3,
+            "gap": -0.09999999999999998
+          },
+          {
+            "date": "2024-12-02",
+            "target_ndvi": 0.3,
+            "reference_ndvi": 0.4,
+            "gap": -0.10000000000000003
+          },
+          {
+            "date": "2024-12-03",
+            "target_ndvi": 0.4,
+            "reference_ndvi": 0.5,
+            "gap": -0.09999999999999998
+          },
+          {
+            "date": "2024-12-04",
+            "target_ndvi": 0.5,
+            "reference_ndvi": 0.6,
+            "gap": -0.09999999999999998
+          },
+          {
+            "date": "2024-12-05",
+            "target_ndvi": 0.6,
+            "reference_ndvi": 0.7,
+            "gap": -0.09999999999999998
+          }
+        ]
+      },
+      "initial": {
+        "evidence_id": "EV-INITIAL-001",
+        "unit": "ndvi",
+        "source_files": [
+          "ndvi_metadata.csv",
+          "LAYER_MAP_PLANTING.csv",
+          "fields.csv"
+        ],
+        "method": "Pares estritamente anteriores à menor primeira data de plantio; mínimo de três pares; abs(gap) >= 0,02. Heurística operacional, não teste de significância.",
+        "observation_count": 5,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "initial_mean_gap",
+        "target_value": null,
+        "reference_value": null,
+        "difference": -0.09999999999999999,
+        "target_field_id": "103146",
+        "reference_field_id": "103147",
+        "period": "full_season",
+        "warnings": [],
+        "available": true,
+        "cutoff_date": "2025-01-01",
+        "paired_dates": 5,
+        "mean_gap": -0.09999999999999999,
+        "threshold": 0.02,
+        "different": true,
+        "rule_id": "initial_gap_heuristic"
+      },
+      "population": {
+        "evidence_id": "EV-POP-001",
+        "unit": "plants/ha",
+        "source_files": [
+          "LAYER_MAP_PLANTING.csv",
+          "service_orders.csv",
+          "service_orders_fields.csv",
+          "fields.csv"
+        ],
+        "method": "Σ(população × área) / Σ(área), por talhão; diferença percentual = (alvo − referência) / referência × 100. Contagens referem-se ao recorte normalizado; descartes de importação permanecem nos avisos do pacote.",
+        "observation_count": 3,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "population_per_ha",
+        "target_value": 25.0,
+        "reference_value": 20.0,
+        "difference": 5.0,
+        "target_field_id": "103146",
+        "reference_field_id": "103147",
+        "period": "full_season",
+        "warnings": [],
+        "target_population_per_ha": 25.0,
+        "reference_population_per_ha": 20.0,
+        "difference_percent": 25.0,
+        "target_rows": {
+          "valid": 2,
+          "discarded": 0
+        },
+        "reference_rows": {
+          "valid": 1,
+          "discarded": 0
+        }
+      },
+      "application": {
+        "evidence_id": "EV-APP-CALAGEM-001",
+        "unit": "%",
+        "source_files": [
+          "LAYER_MAP_FERTILIZATION.csv",
+          "service_orders.csv",
+          "service_orders_fields.csv",
+          "fields.csv"
+        ],
+        "method": "Doses ponderadas por área; conformidade = aplicada / configurada × 100, sem teto de 100%. Diferença em pontos percentuais. Contagens referem-se ao recorte normalizado.",
+        "observation_count": 3,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "application_compliance",
+        "target_value": 42.857142857142854,
+        "reference_value": 100.0,
+        "difference": -57.142857142857146,
+        "target_field_id": "103146",
+        "reference_field_id": "103147",
+        "period": "full_season",
+        "warnings": [],
+        "operation": "CALAGEM",
+        "target_compliance_percent": 42.857142857142854,
+        "reference_compliance_percent": 100.0,
+        "target_applied_dose": 75.0,
+        "reference_applied_dose": 100.0,
+        "target_configured_dose": 175.0,
+        "reference_configured_dose": 100.0,
+        "target_rows": {
+          "valid": 2,
+          "discarded": 0
+        },
+        "reference_rows": {
+          "valid": 1,
+          "discarded": 0
+        },
+        "dose_unit": "kg/ha"
+      }
+    },
+    "103147:103146": {
+      "validation": {
+        "evidence_id": "EV-COMP-001",
+        "unit": null,
+        "source_files": [
+          "fields.csv",
+          "LAYER_MAP_PLANTING.csv",
+          "LAYER_MAP_FERTILIZATION.csv",
+          "ndvi_metadata.csv"
+        ],
+        "method": "Um ponto por critério satisfeito; critério desconhecido não pontua. Cultura ou finalidade incompatível e manejo não distinto bloqueiam o par.",
+        "observation_count": 5,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": null,
+        "target_value": null,
+        "reference_value": null,
+        "difference": null,
+        "target_field_id": "103147",
+        "reference_field_id": "103146",
+        "period": "full_season",
+        "warnings": [
+          "Pares estritamente anteriores à menor primeira data de plantio; mínimo de três pares; abs(gap) >= 0,02. Heurística operacional, não teste de significância."
+        ],
+        "allowed": true,
+        "score": 4,
+        "max_score": 5,
+        "criteria": [
+          {
+            "id": "same_crop",
+            "label": "Mesma cultura",
+            "satisfied": true,
+            "detail": "Cultura explícita nas operações: MILHO"
+          },
+          {
+            "id": "same_purpose",
+            "label": "Mesma finalidade",
+            "satisfied": true,
+            "detail": "silage × silage"
+          },
+          {
+            "id": "paired_dates",
+            "label": "Ao menos cinco datas pareadas",
+            "satisfied": true,
+            "detail": "5 datas pareadas."
+          },
+          {
+            "id": "operations",
+            "label": "Plantio e fertilização nos dois talhões",
+            "satisfied": true,
+            "detail": "Disponibilidade no período selecionado."
+          },
+          {
+            "id": "initial_condition",
+            "label": "Condição inicial sem gap relevante",
+            "satisfied": false,
+            "detail": "Pares estritamente anteriores à menor primeira data de plantio; mínimo de três pares; abs(gap) >= 0,02. Heurística operacional, não teste de significância."
+          }
+        ],
+        "available_analyses": [
+          "compare_ndvi",
+          "check_initial_condition",
+          "compare_population",
+          "application_compliance",
+          "summarize_soil_analysis",
+          "compare_soil_measurement_groups"
+        ],
+        "common_operations": [
+          "CALAGEM"
+        ],
+        "paired_dates": 5
+      },
+      "ndvi": {
+        "evidence_id": "EV-NDVI-001",
+        "unit": "ndvi",
+        "source_files": [
+          "ndvi_metadata.csv",
+          "fields.csv"
+        ],
+        "method": "Inner join por data, sem interpolação; médias e gap alvo menos referência. Mínimo de uma data; menos de cinco reduz comparabilidade.",
+        "observation_count": 5,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "mean_gap",
+        "target_value": 0.5,
+        "reference_value": 0.4,
+        "difference": 0.09999999999999999,
+        "target_field_id": "103147",
+        "reference_field_id": "103146",
+        "period": "full_season",
+        "warnings": [],
+        "paired_dates": 5,
+        "target_mean": 0.5,
+        "reference_mean": 0.4,
+        "mean_gap": 0.09999999999999999,
+        "negative_dates": 0,
+        "positive_dates": 5,
+        "equal_dates": 0,
+        "series": [
+          {
+            "date": "2024-12-01",
+            "target_ndvi": 0.3,
+            "reference_ndvi": 0.2,
+            "gap": 0.09999999999999998
+          },
+          {
+            "date": "2024-12-02",
+            "target_ndvi": 0.4,
+            "reference_ndvi": 0.3,
+            "gap": 0.10000000000000003
+          },
+          {
+            "date": "2024-12-03",
+            "target_ndvi": 0.5,
+            "reference_ndvi": 0.4,
+            "gap": 0.09999999999999998
+          },
+          {
+            "date": "2024-12-04",
+            "target_ndvi": 0.6,
+            "reference_ndvi": 0.5,
+            "gap": 0.09999999999999998
+          },
+          {
+            "date": "2024-12-05",
+            "target_ndvi": 0.7,
+            "reference_ndvi": 0.6,
+            "gap": 0.09999999999999998
+          }
+        ]
+      },
+      "initial": {
+        "evidence_id": "EV-INITIAL-001",
+        "unit": "ndvi",
+        "source_files": [
+          "ndvi_metadata.csv",
+          "LAYER_MAP_PLANTING.csv",
+          "fields.csv"
+        ],
+        "method": "Pares estritamente anteriores à menor primeira data de plantio; mínimo de três pares; abs(gap) >= 0,02. Heurística operacional, não teste de significância.",
+        "observation_count": 5,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "initial_mean_gap",
+        "target_value": null,
+        "reference_value": null,
+        "difference": 0.09999999999999999,
+        "target_field_id": "103147",
+        "reference_field_id": "103146",
+        "period": "full_season",
+        "warnings": [],
+        "available": true,
+        "cutoff_date": "2025-01-01",
+        "paired_dates": 5,
+        "mean_gap": 0.09999999999999999,
+        "threshold": 0.02,
+        "different": true,
+        "rule_id": "initial_gap_heuristic"
+      },
+      "population": {
+        "evidence_id": "EV-POP-001",
+        "unit": "plants/ha",
+        "source_files": [
+          "LAYER_MAP_PLANTING.csv",
+          "service_orders.csv",
+          "service_orders_fields.csv",
+          "fields.csv"
+        ],
+        "method": "Σ(população × área) / Σ(área), por talhão; diferença percentual = (alvo − referência) / referência × 100. Contagens referem-se ao recorte normalizado; descartes de importação permanecem nos avisos do pacote.",
+        "observation_count": 3,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "population_per_ha",
+        "target_value": 20.0,
+        "reference_value": 25.0,
+        "difference": -5.0,
+        "target_field_id": "103147",
+        "reference_field_id": "103146",
+        "period": "full_season",
+        "warnings": [],
+        "target_population_per_ha": 20.0,
+        "reference_population_per_ha": 25.0,
+        "difference_percent": -20.0,
+        "target_rows": {
+          "valid": 1,
+          "discarded": 0
+        },
+        "reference_rows": {
+          "valid": 2,
+          "discarded": 0
+        }
+      },
+      "application": {
+        "evidence_id": "EV-APP-CALAGEM-001",
+        "unit": "%",
+        "source_files": [
+          "LAYER_MAP_FERTILIZATION.csv",
+          "service_orders.csv",
+          "service_orders_fields.csv",
+          "fields.csv"
+        ],
+        "method": "Doses ponderadas por área; conformidade = aplicada / configurada × 100, sem teto de 100%. Diferença em pontos percentuais. Contagens referem-se ao recorte normalizado.",
+        "observation_count": 3,
+        "tool_version": "1.0.0",
+        "notes": [],
+        "metric": "application_compliance",
+        "target_value": 100.0,
+        "reference_value": 42.857142857142854,
+        "difference": 57.142857142857146,
+        "target_field_id": "103147",
+        "reference_field_id": "103146",
+        "period": "full_season",
+        "warnings": [],
+        "operation": "CALAGEM",
+        "target_compliance_percent": 100.0,
+        "reference_compliance_percent": 42.857142857142854,
+        "target_applied_dose": 100.0,
+        "reference_applied_dose": 75.0,
+        "target_configured_dose": 100.0,
+        "reference_configured_dose": 175.0,
+        "target_rows": {
+          "valid": 1,
+          "discarded": 0
+        },
+        "reference_rows": {
+          "valid": 2,
+          "discarded": 0
+        },
+        "dose_unit": "kg/ha"
+      }
+    }
+  },
+  "soil_summary": {
+    "evidence_id": "EV-SOIL-SUMMARY-001",
+    "unit": null,
+    "source_files": [
+      "soil_analysis.csv"
+    ],
+    "method": "Estatísticas descritivas por variável sobre valores válidos; quartis por interpolação linear (NumPy); sem classificação agronômica.",
+    "observation_count": 2,
+    "tool_version": "1.0.0",
+    "notes": [],
+    "metric": null,
+    "target_value": null,
+    "reference_value": null,
+    "difference": null,
+    "scope": "dataset",
+    "warnings": [],
+    "limitations": [
+      "As amostras pertencem ao dataset, sem vínculo documentado com talhão, coordenada, data ou profundidade.",
+      "O significado do sufixo _2 não está documentado; os grupos são somente Conjunto 1 e Conjunto 2.",
+      "Unidades e referências agronômicas não documentadas; não há classificação de suficiência."
+    ],
+    "measurement_group": "group_1",
+    "sample_count": 2,
+    "valid_values": 50,
+    "expected_values": 50,
+    "completeness_percent": 100.0,
+    "metrics": [
+      {
+        "name": "ARGILA",
+        "family": "textura",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 22.5,
+        "median": 22.5,
+        "min": 20.0,
+        "max": 25.0,
+        "q1": 21.25,
+        "q3": 23.75,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "SILTE",
+        "family": "textura",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 27.5,
+        "median": 27.5,
+        "min": 25.0,
+        "max": 30.0,
+        "q1": 26.25,
+        "q3": 28.75,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "AREIA",
+        "family": "textura",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 50.0,
+        "median": 50.0,
+        "min": 50.0,
+        "max": 50.0,
+        "q1": 50.0,
+        "q3": 50.0,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "MO",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 4.75,
+        "median": 4.75,
+        "min": 4.5,
+        "max": 5.0,
+        "q1": 4.625,
+        "q3": 4.875,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "CTC",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 26.0,
+        "median": 26.0,
+        "min": 25.0,
+        "max": 27.0,
+        "q1": 25.5,
+        "q3": 26.5,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "CTCE",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 20.5,
+        "median": 20.5,
+        "min": 20.0,
+        "max": 21.0,
+        "q1": 20.25,
+        "q3": 20.75,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "PHCACL2",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 5.35,
+        "median": 5.35,
+        "min": 5.2,
+        "max": 5.5,
+        "q1": 5.275,
+        "q3": 5.425,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "CA",
+        "family": "bases",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 12.5,
+        "median": 12.5,
+        "min": 12.0,
+        "max": 13.0,
+        "q1": 12.25,
+        "q3": 12.75,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "SATCA",
+        "family": "bases",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 48.05,
+        "median": 48.05,
+        "min": 48.0,
+        "max": 48.1,
+        "q1": 48.025,
+        "q3": 48.075,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "MG",
+        "family": "bases",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 3.1,
+        "median": 3.1,
+        "min": 3.0,
+        "max": 3.2,
+        "q1": 3.05,
+        "q3": 3.1500000000000004,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "SATMG",
+        "family": "bases",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 11.95,
+        "median": 11.95,
+        "min": 11.9,
+        "max": 12.0,
+        "q1": 11.925,
+        "q3": 11.975,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "K",
+        "family": "bases",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 1.05,
+        "median": 1.05,
+        "min": 1.0,
+        "max": 1.1,
+        "q1": 1.025,
+        "q3": 1.0750000000000002,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "SATK",
+        "family": "bases",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 4.05,
+        "median": 4.05,
+        "min": 4.0,
+        "max": 4.1,
+        "q1": 4.025,
+        "q3": 4.074999999999999,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "P",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 10.5,
+        "median": 10.5,
+        "min": 10.0,
+        "max": 11.0,
+        "q1": 10.25,
+        "q3": 10.75,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "SATB",
+        "family": "bases",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 64.05,
+        "median": 64.05,
+        "min": 64.0,
+        "max": 64.1,
+        "q1": 64.025,
+        "q3": 64.07499999999999,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "AL",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 0.45,
+        "median": 0.45,
+        "min": 0.4,
+        "max": 0.5,
+        "q1": 0.42500000000000004,
+        "q3": 0.475,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "SATAL",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 1.95,
+        "median": 1.95,
+        "min": 1.9,
+        "max": 2.0,
+        "q1": 1.9249999999999998,
+        "q3": 1.975,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "S",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 6.15,
+        "median": 6.15,
+        "min": 6.0,
+        "max": 6.3,
+        "q1": 6.075,
+        "q3": 6.225,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "HAL",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 9.25,
+        "median": 9.25,
+        "min": 9.0,
+        "max": 9.5,
+        "q1": 9.125,
+        "q3": 9.375,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "SB",
+        "family": "bases",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 16.65,
+        "median": 16.65,
+        "min": 16.0,
+        "max": 17.3,
+        "q1": 16.325,
+        "q3": 16.975,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "B",
+        "family": "micronutrientes",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 0.25,
+        "median": 0.25,
+        "min": 0.2,
+        "max": 0.3,
+        "q1": 0.225,
+        "q3": 0.275,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "ZN",
+        "family": "micronutrientes",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 1.1,
+        "median": 1.1,
+        "min": 1.0,
+        "max": 1.2,
+        "q1": 1.05,
+        "q3": 1.15,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "MN",
+        "family": "micronutrientes",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 5.25,
+        "median": 5.25,
+        "min": 5.0,
+        "max": 5.5,
+        "q1": 5.125,
+        "q3": 5.375,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "CU",
+        "family": "micronutrientes",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 0.55,
+        "median": 0.55,
+        "min": 0.5,
+        "max": 0.6,
+        "q1": 0.525,
+        "q3": 0.575,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "FE",
+        "family": "micronutrientes",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 31.0,
+        "median": 31.0,
+        "min": 30.0,
+        "max": 32.0,
+        "q1": 30.5,
+        "q3": 31.5,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      }
+    ],
+    "texture": {
+      "unit": "%",
+      "method": "Normalização de AREIA, SILTE e ARGILA para soma de 100%, apenas quando a soma original está entre 95 e 105.",
+      "valid_n": 2,
+      "excluded_n": 0,
+      "samples": [
+        {
+          "sample_id": "1",
+          "sand": 50.0,
+          "silt": 30.0,
+          "clay": 20.0,
+          "original_total": 100.0,
+          "original_sand": 50.0,
+          "original_silt": 30.0,
+          "original_clay": 20.0
+        },
+        {
+          "sample_id": "2",
+          "sand": 50.0,
+          "silt": 25.0,
+          "clay": 25.0,
+          "original_total": 100.0,
+          "original_sand": 50.0,
+          "original_silt": 25.0,
+          "original_clay": 25.0
+        }
+      ],
+      "source_files": [
+        "soil_analysis.csv"
+      ]
+    }
+  },
+  "soil_summary_2": {
+    "evidence_id": "EV-SOIL-SUMMARY-002",
+    "unit": null,
+    "source_files": [
+      "soil_analysis.csv"
+    ],
+    "method": "Estatísticas descritivas por variável sobre valores válidos; quartis por interpolação linear (NumPy); sem classificação agronômica.",
+    "observation_count": 2,
+    "tool_version": "1.0.0",
+    "notes": [],
+    "metric": null,
+    "target_value": null,
+    "reference_value": null,
+    "difference": null,
+    "scope": "dataset",
+    "warnings": [],
+    "limitations": [
+      "As amostras pertencem ao dataset, sem vínculo documentado com talhão, coordenada, data ou profundidade.",
+      "O significado do sufixo _2 não está documentado; os grupos são somente Conjunto 1 e Conjunto 2.",
+      "Unidades e referências agronômicas não documentadas; não há classificação de suficiência."
+    ],
+    "measurement_group": "group_2",
+    "sample_count": 2,
+    "valid_values": 10,
+    "expected_values": 10,
+    "completeness_percent": 100.0,
+    "metrics": [
+      {
+        "name": "MO",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 4.949999999999999,
+        "median": 4.949999999999999,
+        "min": 4.8,
+        "max": 5.1,
+        "q1": 4.875,
+        "q3": 5.0249999999999995,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "CTC",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 26.75,
+        "median": 26.75,
+        "min": 26.0,
+        "max": 27.5,
+        "q1": 26.375,
+        "q3": 27.125,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "PHCACL2",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 5.5,
+        "median": 5.5,
+        "min": 5.4,
+        "max": 5.6,
+        "q1": 5.45,
+        "q3": 5.55,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "SATB",
+        "family": "bases",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 66.5,
+        "median": 66.5,
+        "min": 66.0,
+        "max": 67.0,
+        "q1": 66.25,
+        "q3": 66.75,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "AL",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "missing_n": 0,
+        "mean": 0.25,
+        "median": 0.25,
+        "min": 0.2,
+        "max": 0.3,
+        "q1": 0.225,
+        "q3": 0.275,
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      }
+    ],
+    "texture": {
+      "unit": "%",
+      "method": "Normalização de AREIA, SILTE e ARGILA para soma de 100%, apenas quando a soma original está entre 95 e 105.",
+      "valid_n": 0,
+      "excluded_n": 2,
+      "samples": [],
+      "source_files": [
+        "soil_analysis.csv"
+      ]
+    }
+  },
+  "soil_groups": {
+    "evidence_id": "EV-SOIL-GROUPS-001",
+    "unit": null,
+    "source_files": [
+      "soil_analysis.csv"
+    ],
+    "method": "Comparação pareada por AMOSTRA e variável; delta = Conjunto 2 − Conjunto 1; mediana dos deltas válidos.",
+    "observation_count": 2,
+    "tool_version": "1.0.0",
+    "notes": [],
+    "metric": null,
+    "target_value": null,
+    "reference_value": null,
+    "difference": null,
+    "scope": "dataset",
+    "warnings": [],
+    "limitations": [
+      "As amostras pertencem ao dataset, sem vínculo documentado com talhão, coordenada, data ou profundidade.",
+      "O significado do sufixo _2 não está documentado; os grupos são somente Conjunto 1 e Conjunto 2.",
+      "Unidades e referências agronômicas não documentadas; não há classificação de suficiência."
+    ],
+    "comparison": "group_2_minus_group_1",
+    "sample_count": 2,
+    "metrics": [
+      {
+        "name": "MO",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "median_delta": 0.19999999999999973,
+        "pairs": [
+          {
+            "sample_id": "1",
+            "group_1": 4.5,
+            "group_2": 4.8,
+            "delta": 0.2999999999999998
+          },
+          {
+            "sample_id": "2",
+            "group_1": 5.0,
+            "group_2": 5.1,
+            "delta": 0.09999999999999964
+          }
+        ],
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "CTC",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "median_delta": 0.75,
+        "pairs": [
+          {
+            "sample_id": "1",
+            "group_1": 25.0,
+            "group_2": 26.0,
+            "delta": 1.0
+          },
+          {
+            "sample_id": "2",
+            "group_1": 27.0,
+            "group_2": 27.5,
+            "delta": 0.5
+          }
+        ],
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "PHCACL2",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "median_delta": 0.1499999999999999,
+        "pairs": [
+          {
+            "sample_id": "1",
+            "group_1": 5.2,
+            "group_2": 5.4,
+            "delta": 0.20000000000000018
+          },
+          {
+            "sample_id": "2",
+            "group_1": 5.5,
+            "group_2": 5.6,
+            "delta": 0.09999999999999964
+          }
+        ],
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "SATB",
+        "family": "bases",
+        "unit": null,
+        "valid_n": 2,
+        "median_delta": 2.450000000000003,
+        "pairs": [
+          {
+            "sample_id": "1",
+            "group_1": 64.0,
+            "group_2": 66.0,
+            "delta": 2.0
+          },
+          {
+            "sample_id": "2",
+            "group_1": 64.1,
+            "group_2": 67.0,
+            "delta": 2.9000000000000057
+          }
+        ],
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      },
+      {
+        "name": "AL",
+        "family": "acidez_fertilidade",
+        "unit": null,
+        "valid_n": 2,
+        "median_delta": -0.2,
+        "pairs": [
+          {
+            "sample_id": "1",
+            "group_1": 0.5,
+            "group_2": 0.3,
+            "delta": -0.2
+          },
+          {
+            "sample_id": "2",
+            "group_1": 0.4,
+            "group_2": 0.2,
+            "delta": -0.2
+          }
+        ],
+        "source_files": [
+          "soil_analysis.csv"
+        ]
+      }
+    ]
+  }
+}

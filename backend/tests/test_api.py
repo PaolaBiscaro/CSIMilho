@@ -18,7 +18,7 @@ def test_complete_package_returns_201_and_stores_dataset(presentation_package) -
     payload = response.json()
     assert payload["status"] == "ready_with_warnings"
     assert len(payload["fields"]) == 4
-    assert len(payload["valid_pairs"]) == 2
+    assert len(payload["valid_pairs"]) == 4
     assert payload["available_operations"] == ["CALAGEM", "MILHO"]
     assert payload["soil"] == {
         "sample_count": 2,

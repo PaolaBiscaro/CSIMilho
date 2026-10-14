@@ -304,20 +304,20 @@ A Semana 2 deve fornecer evidências e contratos próprios para distribuição p
 
 ### Gate específico
 
-- [ ] Grão × Grão é permitido.
-- [ ] Silagem × Silagem é permitido.
-- [ ] Grão × Silagem é bloqueado.
-- [ ] NDVI usa somente datas pareadas.
-- [ ] Condição inicial usa corte anterior ao plantio.
-- [ ] População é ponderada pela área.
-- [ ] Conformidade é ponderada pela área e pode ultrapassar 100%.
-- [ ] O resumo do solo calcula estatísticas descritivas sobre valores válidos.
-- [ ] A comparação de solo é pareada por `AMOSTRA` e usa Conjunto 2 menos Conjunto 1.
-- [ ] Nenhuma evidência de solo atribui amostra a talhão ou presume profundidade.
-- [ ] Os contratos visuais do solo carregam valores, unidade, contagem, fonte e limitações sem misturar métricas incompatíveis.
-- [ ] Cada ferramenta retorna uma evidência conforme o schema.
-- [ ] O registry rejeita ferramentas desconhecidas.
-- [ ] O baseline do pacote real foi conferido.
+- [x] Grão × Grão é permitido.
+- [x] Silagem × Silagem é permitido.
+- [x] Grão × Silagem é bloqueado.
+- [x] NDVI usa somente datas pareadas.
+- [x] Condição inicial usa corte anterior ao plantio.
+- [x] População é ponderada pela área.
+- [x] Conformidade é ponderada pela área e pode ultrapassar 100%.
+- [x] O resumo do solo calcula estatísticas descritivas sobre valores válidos.
+- [x] A comparação de solo é pareada por `AMOSTRA` e usa Conjunto 2 menos Conjunto 1.
+- [x] Nenhuma evidência de solo atribui amostra a talhão ou presume profundidade.
+- [x] Os contratos visuais do solo carregam valores, unidade, contagem, fonte e limitações sem misturar métricas incompatíveis.
+- [x] Cada ferramenta retorna uma evidência conforme o schema.
+- [x] O registry rejeita ferramentas desconhecidas.
+- [x] O baseline do pacote real foi conferido; auditoria e reprodução em [BASELINE_W2.md](BASELINE_W2.md).
 
 ### O que a Semana 3 precisa encontrar
 
@@ -551,20 +551,47 @@ primeiro_passo_da_semana_seguinte: "Iniciar W2.01 sem reaproveitar os valores mo
 ### Registro — Semana 2
 
 ```yaml
-responsavel:
-branch:
-commit_entregue:
-data:
-status: nao_iniciada
-tarefas_concluidas: []
+responsavel: Codex
+branch: passo_2
+commit_entregue: "alterações locais; nenhum commit criado automaticamente"
+data: 2026-10-13
+status: concluida
+tarefas_concluidas: [W2.01, W2.02, W2.03, W2.04, W2.05, W2.06, W2.07, W2.08, W2.09, W2.10, W2.11, W2.12, W2.13, W2.14]
 tarefas_pendentes: []
-comandos_para_executar: []
-testes_executados: []
-resultado_dos_testes:
-decisoes_tomadas: []
-problemas_conhecidos: []
-arquivos_importantes_alterados: []
-primeiro_passo_da_semana_seguinte:
+comandos_para_executar:
+  - "cd backend && uv run uvicorn app.main:app --reload"
+  - "cd frontend && pnpm dev"
+testes_executados:
+  - "cd backend && .venv/bin/python -m pytest"
+  - "cd backend && FARMLAB_REAL_DATA_DIR='/Users/lucashygidio/Downloads/FarmLab' .venv/bin/python -m pytest"
+  - "cd frontend && pnpm test && pnpm build"
+  - "git diff --check"
+  - "navegador: importação dos sete CSVs artificiais, comparação e bloqueio de Grão × Silagem"
+  - "navegador: gráficos de solo e NDVI, tabelas, troca de abas e responsividade"
+resultado_dos_testes: "163 Pytest com pacote real e 25 Vitest passaram; build aprovado. Nove regressões reais também passaram isoladamente; sem FARMLAB_REAL_DATA_DIR são ignoradas explicitamente. Revisão visual da W2.13 preservada, sem overflow horizontal ou erros de console"
+decisoes_tomadas:
+  - "Diagnóstico disponível somente em APP_ENV=development; sem Gemini ou execução de código externo"
+  - "Comparação após upload consulta critérios reais locais; gráficos continuam usando fixtures claramente identificadas"
+  - "NDVI exige uma data pareada; menos de cinco gera aviso e reduz o score"
+  - "Quartis por interpolação linear; textura normalizada para 100% somente quando a soma original está entre 95 e 105"
+  - "IDs de evidência locais à investigação; chamadores podem compartilhar o gerador entre ferramentas"
+  - "Baseline real: 29 datas NDVI, gap -0,024985204049, população 61306,266516/63629,025950 e calagem 57,327136%/97,500150%; oito amostras de solo"
+  - "Regressão compara API com recálculo independente dos CSVs; hashes fixam o pacote, contagens são exatas e floats usam tolerância absoluta 1e-8 sem tolerância relativa"
+problemas_conhecidos:
+  - "Importação real mantém 15 avisos e qualidade 60; descartes e diferenças frente ao protótipo estão em BASELINE_W2.md"
+  - "Código do protótipo histórico indisponível: origem exata das aproximações antigas não confirmada; baseline atual auditado diretamente nos arquivos"
+  - "Aviso de depreciação Starlette/httpx já existente"
+arquivos_importantes_alterados:
+  - "backend/app/analytics/, app/harness/schemas.py e registry.py"
+  - "backend/app/api/datasets.py, diagnostics.py e app/main.py"
+  - "backend/tests/test_analytics.py, test_diagnostics.py e test_evidence.py"
+  - "backend/tests/test_real_baseline.py, real_baseline_reference.py e fixtures/real_baseline.json"
+  - "BASELINE_W2.md"
+  - "frontend/src/ui/comparison.js, analytical-panels.js e investigation-preview.js"
+  - "frontend/src/charts/analytics-charts.js e mocks/analytics-preview.json"
+  - "frontend/src/main.js, api.js, styles/components.css, package.json e pnpm-lock.yaml"
+  - "frontend/tests/ e documentação de planejamento/execução"
+primeiro_passo_da_semana_seguinte: "Aguardar próxima solicitação do usuário antes de iniciar W3.01; Semana 2 concluída."
 ```
 
 ### Registro — Semana 3

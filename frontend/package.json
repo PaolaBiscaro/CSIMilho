@@ -10,7 +10,11 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "happy-dom": "^20.14.6",
     "vite": "^7.1.0",
     "vitest": "^3.2.0"
+  },
+  "dependencies": {
+    "chart.js": "^4.5.1"
   }
 }

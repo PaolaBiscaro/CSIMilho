@@ -73,22 +73,53 @@ A identidade usa `#895129` como cor principal. Os demais tons, cores semânticas
 
 O layout segue uma linguagem de dashboard: aplicação sobre canvas claro, cabeçalho horizontal, navegação em pílulas e grade de cards brancos. As referências visuais orientam composição e densidade, mas a paleta marrom do FarmLab permanece obrigatória.
 
-## Prévias navegáveis
+## Comparação e gráficos locais — Semana 2
 
-As abas **Comparação** e **Investigação** podem ser abertas para revisão visual antes da implementação analítica. Elas usam somente dados locais mockados e mostram o selo **Prévia · dados demonstrativos**. A prévia não chama endpoints de investigação, não executa cálculos e não representa resposta do Gemini.
+A tela **Comparação** usa os pares retornados pelo upload, atualiza a pergunta ao trocar os talhões e mostra os cinco critérios e as análises disponíveis. Pares com finalidade ou cultura incompatível são bloqueados; a ordem inversa dos pares válidos é permitida.
 
-- **Dados:** fluxo real de upload e validação;
-- **Comparação:** formulário e indicadores demonstrativos clicáveis;
-- **Investigação:** cards, gráfico ilustrativo e abas internas demonstrativas.
+Com `APP_ENV=development` (padrão), a comparação consulta `POST /api/diagnostics/tools`. Este endpoint executa somente as sete ferramentas determinísticas do registry e retorna uma evidência tipada. Ele responde `404` nos demais ambientes, incluindo `presentation` e `production`; não aceita caminhos ou DataFrames e não chama serviços externos.
 
-O gráfico atual é propositalmente uma prévia simples. Para as Semanas 2 e 4 está previsto um dashboard analítico mais completo, com prioridade para **Solo**: cards de qualidade, distribuição por métrica, comparação pareada entre Conjunto 1 e Conjunto 2, composição de textura, filtros, tooltips e tabelas acessíveis. Esses gráficos só serão ligados quando as evidências determinísticas reais estiverem disponíveis.
+Exemplo de corpo após importar um pacote (substitua os IDs pelos retornados pela API):
 
-Como o arquivo de solo atual não possui coordenada, data ou profundidade, o projeto não prevê mapa, tendência temporal nem perfil de camadas para essas amostras. A interface também não inventará unidades ou faixas agronômicas de suficiência.
+```json
+{
+  "tool": "validate_comparison",
+  "arguments": {
+    "dataset_id": "UUID_DO_UPLOAD",
+    "target_field_id": "ID_ALVO",
+    "reference_field_id": "ID_REFERENCIA",
+    "period": "full_season"
+  }
+}
+```
 
-O reajuste pós-Semana 1 (`R1.01` a `R1.06`) está concluído: a importação exige sete arquivos, normaliza `soil_analysis.csv` no escopo geral do dataset e apresenta sua disponibilidade sem associar amostras a talhões. Ferramentas analíticas, Gemini, harness e relatório ainda não foram implementados.
+O registry está em `backend/app/harness/registry.py`; apesar do diretório previsto no SPEC, ele é apenas um catálogo e executor local, sem harness de IA. As seis análises estão em `backend/app/analytics/`. Parâmetros de período também aceitam `{ "start": "2025-01-01", "end": "2025-02-01" }`; a interface desta etapa oferece a safra completa.
+
+Para conferir a interface:
+
+1. Abra **Comparação** sem upload para explorar os pares fictícios, ou importe os sete CSVs artificiais e clique em **Continuar** para consultar a comparabilidade local.
+2. Verifique que Grão × Silagem mantém o botão bloqueado.
+3. Clique em **Ver gráficos demonstrativos** com um par permitido.
+4. Explore **Solo**: distribuição, Conjunto 1 × Conjunto 2 e composição de textura; altere família, métrica e conjunto.
+5. Abra **Gráfico NDVI** para a trajetória pareada. Todos os gráficos possuem tabela acessível, legenda/tooltip, contagem, unidade e fonte.
+
+A tela **Investigação** permanece uma prévia identificada, com dados fictícios de `frontend/src/mocks/analytics-preview.json`, derivados das fixtures manuais e conferidos pelos testes do backend. Os gráficos usam Chart.js e apenas apresentam os valores prontos; não calculam estatísticas no navegador e não representam o pacote importado. As instâncias anteriores são destruídas ao mudar filtro, aba ou página.
+
+Solo mantém escopo geral do dataset. Unidades desconhecidas aparecem explicitamente, e não há mapa, tendência temporal, profundidade ou classificação agronômica inventada. A textura usa percentuais normalizados no backend somente para amostras cuja soma original esteja entre 95 e 105; a soma original também aparece na tabela.
 
 ## Estado atual
 
-O reajuste visual `R1.07`–`R1.08` está concluído antes de `W2.01`: o frontend usa o novo shell de dashboard e oferece prévias clicáveis de Comparação e Investigação, sempre identificadas como demonstrativas. A implementação analítica continua pendente. A regressão final registrou 56 testes Pytest e 7 testes Vitest aprovados, build Vite concluído, navegação responsiva validada e o pacote real reconhecido com oito amostras de solo.
+W2.01–W2.14 estão concluídas. O pacote real foi validado em 2026-10-13: oito amostras de solo, 29 datas NDVI pareadas, gap −0,024985204049, população 61.306,27/63.629,03 plantas/ha e calagem 57,327136%/97,500150% para Grão 4.0 × Grão Convencional. As diferenças frente às aproximações do protótipo foram investigadas e registradas em [BASELINE_W2.md](BASELINE_W2.md). Gemini, harness de IA, investigação real integrada e relatório ainda não foram implementados.
+
+Verificação de 2026-10-13: **163 testes Pytest com o pacote real**, **25 testes Vitest** e build Vite aprovados. A revisão de interface da W2.13 confirmou importação de fixtures, comparação e gráficos responsivos sem erros de console. O backend mantém um aviso de depreciação já existente de Starlette/httpx.
+
+Para repetir a validação real, sem copiar os CSVs para o repositório:
+
+```sh
+cd backend
+FARMLAB_REAL_DATA_DIR='/Users/lucashygidio/Downloads/FarmLab' .venv/bin/python -m pytest tests/test_real_baseline.py
+```
+
+O teste encontra os sete nomes recursivamente, confere seus hashes e compara as seis análises com cálculos independentes diretamente dos arquivos. Sem `FARMLAB_REAL_DATA_DIR`, os nove testes reais são ignorados explicitamente; arquivos ausentes, duplicados ou alterados fazem a validação falhar quando a variável é definida. Os gráficos da investigação continuam usando as fixtures locais identificadas na interface.
 
 Não coloque `.env`, chaves de API ou CSVs privados no repositório. Use apenas fixtures artificiais pequenas nos testes.

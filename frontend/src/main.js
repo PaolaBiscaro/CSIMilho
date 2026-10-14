@@ -2,7 +2,7 @@ import './styles/tokens.css'
 import './styles/base.css'
 import './styles/layout.css'
 import './styles/components.css'
-import { createComparisonPreview } from './ui/comparison-preview.js'
+import { createComparisonView } from './ui/comparison.js'
 import { createInvestigationPreview } from './ui/investigation-preview.js'
 import { createNavigation } from './ui/navigation.js'
 import { createUploadView } from './ui/upload.js'
@@ -62,21 +62,22 @@ const shell = element('div', 'app-shell')
 const headerSlot = element('div', 'header-slot')
 const content = element('main', 'content')
 let currentPage = 'data'
+let activeView
+let previewPair = '103144:103145'
+const dataView = createDataView()
 
 function navigate(pageId) {
-  if (!views[pageId]) return
+  if (!['data', 'comparison', 'investigation'].includes(pageId)) return
+  activeView?.dispose?.()
   currentPage = pageId
+  activeView = pageId === 'data' ? dataView : pageId === 'comparison'
+    ? createComparisonView(navigate, { onPreview: (key) => { previewPair = key } })
+    : createInvestigationPreview(navigate, previewPair)
   headerSlot.replaceChildren(createNavigation(currentPage, navigate))
-  content.replaceChildren(views[currentPage])
+  content.replaceChildren(activeView)
   const pageName = currentPage === 'data' ? 'Dados' : currentPage === 'comparison' ? 'Comparação' : 'Investigação'
   document.title = `${pageName} · FarmLab Investigator`
   window.scrollTo({ top: 0, behavior: 'smooth' })
-}
-
-const views = {
-  data: createDataView(),
-  comparison: createComparisonPreview(navigate),
-  investigation: createInvestigationPreview(navigate),
 }
 
 shell.addEventListener('farmlab:continue', () => navigate('comparison'))
