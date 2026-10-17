@@ -425,134 +425,167 @@ Este bloco foi solicitado após `R1.06` e também deve terminar antes de `W2.01`
 
 ### W3.01 — Integrar o SDK oficial do Gemini `[P0]`
 
-- [ ] Instalar `google-genai` no backend.
-- [ ] Criar cliente a partir de `GEMINI_API_KEY`.
-- [ ] Usar `GEMINI_MODEL` configurável.
-- [ ] Implementar timeout e tradução de erros comuns.
+- [x] Instalar `google-genai` no backend.
+- [x] Criar cliente a partir de `GEMINI_API_KEY`.
+- [x] Usar `GEMINI_MODEL` configurável.
+- [x] Implementar timeout e tradução de erros comuns.
 
 **Verificar:** módulo pode ser importado sem chave e só cria cliente quando necessário.
 
+**Entrega de 2026-10-15:** `backend/app/harness/gemini_client.py` usa o SDK oficial sob demanda, com modelo configurável, timeout HTTP em milissegundos, encerramento por contexto e erros seguros em português. Chamadas automáticas de ferramentas e retries internos do SDK ficam desativados; o orchestrator futuro controlará o prazo total, a repetição única de 429 e a execução das ferramentas. Testes usam o SDK real com transporte HTTP em memória, sem consumir API.
+
 ### W3.02 — Implementar `POST /api/gemini/test` `[P1]`
 
-- [ ] Fazer requisição mínima ao modelo.
-- [ ] Retornar modelo, sucesso e latência.
-- [ ] Tratar autenticação, rate limit e timeout.
+- [x] Fazer requisição mínima ao modelo.
+- [x] Retornar modelo, sucesso e latência.
+- [x] Tratar autenticação, rate limit e timeout.
 
 **Verificar:** chave válida e chave ausente produzem respostas diferentes e compreensíveis.
 
+**Entrega de 2026-10-15:** rota registrada em `app/api/gemini.py`, sem corpo obrigatório, com prompt fixo, uma chamada e até 32 tokens de saída. Retorna `success`, `model`, `latency_ms`, `message` e `error_code`; usa o timeout e os erros seguros de W3.01. Sucesso e falhas foram simulados com o SDK real e transporte em memória; um servidor temporário confirmou por HTTP o erro sem chave. Teste de chave real permanece em W3.15. W3.03 é a próxima tarefa.
+
 ### W3.03 — Definir schemas do harness `[P0]`
 
-- [ ] Criar `InvestigationRequest`, `ToolCallTrace`, `InvestigationReport` e resposta final.
-- [ ] Proibir campos extras.
-- [ ] Definir enums de força e origem do relatório.
+- [x] Criar `InvestigationRequest`, `ToolCallTrace`, `InvestigationReport` e resposta final.
+- [x] Proibir campos extras.
+- [x] Definir enums de força e origem do relatório.
 
 **Verificar:** exemplos válidos passam e respostas incompletas falham.
 
+**Entrega de 2026-10-15:** contratos em `app/harness/schemas.py`, com `InvestigationResponse`, objetos aninhados fechados, pergunta de 10–500 caracteres, enums de força/origem, trace de sucesso/falha e argumentos vinculados ao tipo da ferramenta. Metadados de dataset, modelo e data ficam no envelope `trace`; evidências e gráficos preservam os sete resultados tipados da W2. Base `Evidence` extraída para `evidence_schema.py` e reexportada por `schemas.py`, sem alteração do contrato anterior. Os 112 novos casos cobrem exemplos válidos, campos ausentes/extras, enums, duração finita, falhas controladas, serialização completa e imports sem ciclo. Suíte backend: 320 passaram, 9 reais ignorados. Validação semântica e execução do harness permanecem nas tarefas seguintes; próxima tarefa W3.04.
+
 ### W3.04 — Escrever o system prompt `[P0]`
 
-- [ ] Definir papel, objetivo e limites.
-- [ ] Explicar que ferramentas são a única fonte de números.
-- [ ] Proibir causalidade e dados inventados.
-- [ ] Exigir referências por `evidence_id`.
-- [ ] Tratar a pergunta da pessoa como conteúdo não confiável.
+- [x] Definir papel, objetivo e limites.
+- [x] Explicar que ferramentas são a única fonte de números.
+- [x] Proibir causalidade e dados inventados.
+- [x] Exigir referências por `evidence_id`.
+- [x] Tratar a pergunta da pessoa como conteúdo não confiável.
 
 **Verificar:** prompt não contém dados específicos hardcoded nem segredo.
 
+**Entrega de 2026-10-15:** `SYSTEM_PROMPT` estático em `app/harness/prompts.py`, em português, com papel observacional, ferramentas como única fonte de números, referências existentes, proibição de causalidade e tratamento da pergunta e textos externos como dados não confiáveis. Inclui comparabilidade antes das análises, orçamento de chamadas, limites do solo, limitações e formato `InvestigationReport`. Revisão contra o SPEC e inspeção AST/import confirmaram texto literal sem interpolação, acesso ao ambiente ou chamadas; auditoria não encontrou credenciais, IDs concretos, caminhos, URLs ou resultados do protótipo. Suíte existente: 320 passaram, 9 reais ignorados. A instrução ainda não é enviada ao Gemini; integração e validação em execução permanecem nas tarefas seguintes. Próxima tarefa: W3.05.
+
 ### W3.05 — Converter o registry para Function Calling `[P0]`
 
-- [ ] Gerar declarações de função compatíveis com o SDK.
-- [ ] Manter parâmetros mínimos e descrições claras.
-- [ ] Não expor argumentos internos como DataFrame ou caminho.
+- [x] Gerar declarações de função compatíveis com o SDK.
+- [x] Manter parâmetros mínimos e descrições claras.
+- [x] Não expor argumentos internos como DataFrame ou caminho.
 
-**Verificar:** as cinco declarações podem ser serializadas e enviadas ao SDK.
+**Verificar:** as sete declarações podem ser serializadas e enviadas ao SDK.
+
+**Entrega de 2026-10-15:** `build_gemini_tool()` em `app/harness/registry.py` gera um `types.Tool` com as sete `FunctionDeclaration` a partir de `TOOLS`, usando nome, descrição e `parameters_json_schema` dos modelos Pydantic. Corrigida a contagem antiga de cinco para incluir as duas ferramentas de solo já previstas no SPEC e entregues na W2. Descrições dos parâmetros adicionadas aos contratos, sem alterar campos ou regras. Preservados objetos fechados, período alternativo, referências locais, enumerações, defaults e filtros nulos. Nenhum callable Python, dataset interno, DataFrame, caminho, store ou gerador de IDs é exposto. Os 17 novos testes verificaram declarações e o payload HTTP real do SDK em transporte simulado, além do retorno das chamadas sem execução automática. Suíte completa: 337 passaram, 9 reais ignorados. Próxima tarefa: W3.06; nenhuma chamada ao serviço Gemini real.
 
 ### W3.06 — Implementar validador de chamadas `[P0]`
 
-- [ ] Conferir allowlist.
-- [ ] Validar parâmetros com Pydantic.
-- [ ] Conferir IDs no dataset.
-- [ ] Impedir troca de alvo e referência.
-- [ ] detectar repetição idêntica.
+- [x] Conferir allowlist.
+- [x] Validar parâmetros com Pydantic.
+- [x] Conferir IDs no dataset.
+- [x] Impedir troca de alvo e referência.
+- [x] Detectar repetição idêntica.
 
 **Verificar:** testes cobrem cada bloqueio.
 
+**Entrega de 2026-10-15:** `ToolCallValidator` em `app/harness/validators.py`, com estado por investigação e cópia da seleção original. Valida nome no registry, objeto de argumentos pelo modelo Pydantic, dataset da sessão, existência dos talhões e preservação de alvo, referência e período. Chamadas aceitas ficam reservadas antes da execução; chamadas rejeitadas não alteram o histórico. Repetições consideram defaults, UUID, espaços, nome canônico de operação e conjunto de métricas de solo. Retorna argumentos tipados normalizados; erros locais usam códigos/mensagens sem ecoar conteúdo não confiável. Os 54 novos casos cobrem os bloqueios, expiração da sessão, isolamento, mutações e execução local das sete ferramentas após validação. Suíte completa: 391 passaram, 9 reais ignorados. Integração no loop, orçamento e comparabilidade continuam na W3.08; próxima tarefa W3.07.
+
 ### W3.07 — Implementar trace da investigação `[P0]`
 
-- [ ] Registrar sequência, ferramenta, argumentos normalizados, evidências, fontes e duração.
-- [ ] Não registrar chave, CSV bruto ou prompt completo.
-- [ ] Criar `trace_id` e `investigation_id`.
+- [x] Registrar sequência, ferramenta, argumentos normalizados, evidências, fontes e duração.
+- [x] Não registrar chave, CSV bruto ou prompt completo.
+- [x] Criar `trace_id` e `investigation_id`.
 
 **Verificar:** trace de ferramenta bem-sucedida e falha controlada segue o schema.
 
+**Entrega de 2026-10-15:** `InvestigationRecorder` em `app/harness/trace.py` cria UUIDs de investigação/trace e um gerador local de evidências. `run_tool` usa o validador W3.06, executa uma ferramenta local e registra sequência, argumentos normalizados, versão, início UTC, duração monotônica, IDs e fontes. Falhas geram entrada `error` e `ToolExecutionError` com mensagem local, sem exceção bruta; rejeições anteriores à execução não criam entrada. `snapshot()` retorna cópia defensiva aderente a `InvestigationTrace`. O trace não inclui pergunta, configuração do provedor ou resultado completo. Fontes precisam ser nomes dos arquivos esperados; versão inconsistente e ID repetido são rejeitados. Os 26 novos testes incluem as sete ferramentas, falha real, isolamento, privacidade e relógio de parede retrocedendo. Suíte completa: 417 passaram, 9 reais ignorados. Próxima tarefa W3.08; loop Gemini e orçamento ainda não implementados.
+
 ### W3.08 — Implementar o loop do orchestrator `[P0]`
 
-- [ ] Enviar contexto e ferramentas ao Gemini.
-- [ ] Receber, validar e executar chamadas.
-- [ ] Devolver resultados ao modelo.
-- [ ] Aplicar limite de oito chamadas.
-- [ ] Exigir `validate_comparison` antes das análises.
+- [x] Enviar contexto e ferramentas ao Gemini.
+- [x] Receber, validar e executar chamadas.
+- [x] Devolver resultados ao modelo.
+- [x] Aplicar limite de oito chamadas.
+- [x] Exigir `validate_comparison` antes das análises.
 
 **Verificar:** usar um cliente fake para simular duas ferramentas e finalização sem consumir API.
 
+**Entrega de 2026-10-16:** `run_investigation_tools` integra contexto sem CSVs, sete declarações, validador, execução determinística e trace. Exige comparabilidade permitida, executa lotes sequencialmente, revalida retornos pelo schema concreto e preserva IDs/assinaturas no histórico do SDK. Limita a oito chamadas (ou configuração menor), controla prazo entre etapas e timeout HTTP restante, repete 429 uma única vez e encerra em falhas com evidências parciais e erro local. Retorna `ToolLoopResult` interno; texto livre não vira relatório. Cliente próprio é fechado; cliente injetado pertence ao chamador. Verificação: 34 testes novos de loop e nove de timeout; suíte completa com 460 aprovados, 9 reais ignorados e três avisos existentes, sem consumir API. Prazo síncrono não interrompe cálculo local em andamento. Síntese, orçamento compartilhado entre fases, fallback e rota continuam nas próximas tarefas; próximo item W3.09.
+
 ### W3.09 — Implementar síntese estruturada `[P0]`
 
-- [ ] Enviar somente evidências e regras acumuladas.
-- [ ] Solicitar JSON aderente ao schema final.
-- [ ] Validar a resposta com Pydantic.
+- [x] Enviar somente evidências e regras acumuladas.
+- [x] Solicitar JSON aderente ao schema final.
+- [x] Validar a resposta com Pydantic.
 
 **Verificar:** resposta fake válida vira `InvestigationReport`.
 
+**Entrega de 2026-10-16:** `synthesize_report` envia uma conversa nova contendo somente evidências e avisos acumulados, com instruções estáticas de síntese, MIME JSON e `response_json_schema` derivado de `InvestigationReport`. Não disponibiliza ferramentas nem reutiliza pergunta, trace ou texto livre do planejamento. Revalida fatos de entrada e exige planejamento concluído/limitado com comparabilidade permitida. Valida o texto JSON recebido com Pydantic, sem confiar em `response.parsed`; erros estruturais, bloqueios, truncamento e chamadas de ferramentas são rejeitados com mensagens locais. `run_investigation_draft` integra as fases com um cliente, prazo e repetição única de 429 compartilhados, preservando evidências/trace quando a síntese falha. Retorna rascunho interno, ainda sem validação semântica, reparo, fallback ou endpoint. Verificação: 43 testes novos passaram; suíte backend com 503 aprovados, 9 reais ignorados e três avisos existentes, sem consumir API. Próxima tarefa: W3.10.
+
 ### W3.10 — Validar evidências e números `[P0]`
 
-- [ ] Verificar todos os `evidence_ids`.
-- [ ] Detectar números ausentes dos fatos estruturados.
-- [ ] Verificar sinal e unidade.
-- [ ] Exigir limitações obrigatórias.
+- [x] Verificar todos os `evidence_ids`.
+- [x] Detectar números ausentes dos fatos estruturados.
+- [x] Verificar sinal e unidade.
+- [x] Exigir limitações obrigatórias.
 
 **Verificar:** testes rejeitam evidência falsa e número inventado.
 
+**Entrega de 2026-10-16:** `report_validation.py`, reexportado por `validators.py`, confere referências estruturadas e no texto, duplicação de IDs, números nas evidências citadas, unidades, sinal, papéis alvo/referência/diferença, estatísticas de solo, contagens e datas/amostras. O catálogo usa campos tipados das sete ferramentas, sem aproveitar números em versões, IDs, notas ou avisos como fatos. Arredondamento decimal respeita a precisão escrita, sem converter valor não nulo em zero; contagens exigem igualdade. Regras locais produzem `required_limitations` antes da síntese; o relatório deve preservar `rule_id` e explicação fornecida. O orchestrator aplica as checagens após Pydantic e retorna `invalid_report_evidence` com `validation_issues` locais, preservando fatos/trace e sem executar reparo. Os 80 testes novos do validador e cinco de integração passaram; suíte completa com 588 aprovados, 9 reais ignorados e três avisos existentes. Validação conservadora de formatos/vocabulário explícitos, não prova semântica de prosa arbitrária. Linguagem causal permanece na W3.11, próximo item.
+
 ### W3.11 — Validar linguagem causal `[P0]`
 
-- [ ] Detectar termos proibidos em contexto causal.
-- [ ] Permitir menções explícitas como “não é possível afirmar que causou”.
-- [ ] Retornar erros de validação claros para reparo.
+- [x] Detectar termos proibidos em contexto causal.
+- [x] Permitir menções explícitas como “não é possível afirmar que causou”.
+- [x] Retornar erros de validação claros para reparo.
 
 **Verificar:** conjunto de frases permitidas e proibidas possui testes.
 
+**Entrega de 2026-10-16:** `validate_report_language` em `language_validation.py`, reexportado por `validators.py`, verifica todos os campos narrativos. Regras locais cobrem os cinco termos do SPEC, flexões e algumas expressões equivalentes. Ressalvas explícitas de impossibilidade de concluir são permitidas somente no escopo da oração; pontuação, adversativas e novas afirmações encerram esse escopo. Negação genérica, dupla negação e aspas em torno de uma afirmação não liberam causalidade. Há exceções específicas para transporte literal, responsabilidades administrativas, garantias do processamento e menções metalinguísticas. O orchestrator valida linguagem após evidências, retornando `invalid_report_language` e `validation_issues` com campo/família da expressão, sem texto bruto e preservando fatos/trace. Os 91 testes de linguagem e quatro de integração novos passaram; suíte completa: 683 aprovados, 9 reais ignorados e três avisos existentes. Regras lexicais conservadoras, sem garantia de compreensão de prosa arbitrária. Próximo item W3.12; reparo não iniciado.
+
 ### W3.12 — Implementar uma tentativa de reparo `[P1]`
 
-- [ ] Enviar ao Gemini somente erros, schema e fatos.
-- [ ] Não repetir ferramentas no reparo.
-- [ ] Aceitar apenas uma nova resposta.
+- [x] Enviar ao Gemini somente erros, schema e fatos.
+- [x] Não repetir ferramentas no reparo.
+- [x] Aceitar apenas uma nova resposta.
 
 **Verificar:** primeiro relatório inválido e segundo válido concluem com trace de reparo.
 
+**Entrega de 2026-10-16:** `run_investigation_draft` executa uma única tentativa após erro de JSON/schema, evidências ou linguagem. A conversa nova contém somente erros locais seguros, schema e fatos já acumulados, incluindo avisos e limitações; não reutiliza o relatório rejeitado ou o histórico. Ferramentas indisponíveis no reparo; a nova resposta passa por todas as validações. Cliente, prazo total e uma repetição de 429 permanecem compartilhados. `trace.repair` registra início, duração, motivo e resultado, preservando `trace.calls` e evidências; segunda falha retorna erro final sem terceira resposta. Falhas do provedor ou protocolo não iniciam reparo. Os 34 testes novos passaram; suíte completa: 717 aprovados, 9 reais ignorados e três avisos existentes, sem API externa ou dependências novas. Fallback e endpoint continuam pendentes. Próximo item: W3.13.
+
 ### W3.13 — Implementar fallback determinístico `[P0]`
 
-- [ ] Criar visão geral por templates.
-- [ ] Ordenar achados pelas regras do MVP.
-- [ ] Adicionar limitações obrigatórias.
-- [ ] Marcar `generated_by` corretamente.
+- [x] Criar visão geral por templates.
+- [x] Ordenar achados pelas regras do MVP.
+- [x] Adicionar limitações obrigatórias.
+- [x] Marcar `generated_by` corretamente.
 
 **Verificar:** fallback funciona sem chave e não menciona Gemini como autor.
 
+**Entrega de 2026-10-16:** `fallback.py` implementa `build_fallback_report` sobre as evidências existentes, sem chave, cliente, rede ou repetição de ferramentas. Retorna relatório validado, origem fixa `deterministic_fallback` e aviso com motivo seguro. Templates cobrem as sete ferramentas, limitações obrigatórias e recomendações vinculadas às evidências. Ordem local documentada: comparabilidade, diferença inicial, solo, NDVI, condição inicial restante, aplicações com CALAGEM primeiro e população; força conservadora `weak`. Comparabilidade ausente/inválida e fatos inconsistentes são rejeitados; cobertura parcial é explicitada. Ajustada a redação da limitação de conjuntos de solo, antes incompatível com o validador causal; aviso operacional não implica qualidade ruim dos dados. Os 45 novos testes passaram; suíte completa: 762 aprovados, 9 reais ignorados e três avisos existentes. Ativação automática, coleta local sem chave e endpoint permanecem na W3.14, próximo item.
+
 ### W3.14 — Implementar `POST /api/investigations` `[P0]`
 
-- [ ] Validar requisição e recuperar dataset.
-- [ ] Executar orchestrator.
-- [ ] Acionar fallback nos casos previstos.
-- [ ] Retornar relatório, evidências, gráfico, trace e avisos.
+- [x] Validar requisição e recuperar dataset.
+- [x] Executar orchestrator.
+- [x] Acionar fallback nos casos previstos.
+- [x] Retornar relatório, evidências, gráfico, trace e avisos.
 
 **Verificar:** cliente fake do Gemini permite teste completo da API sem rede.
 
+**Entrega de 2026-10-16 — concluída:** `POST /api/investigations` chama `run_investigation` e retorna o envelope completo. Comparabilidade local antecede o provedor e compartilha recorder, limite de ferramentas e prazo com o loop; a evidência já executada é fornecida em `precomputed_evidence`. Sem chave, plano local de até oito chamadas; após falha do provedor ou reparo, fallback reutiliza os fatos sem repetir ferramentas. Erros de cálculo e chamadas inválidas interrompem o fluxo; erros HTTP são controlados. Verificação inicial restrita: 745 aprovados, 9 ignorados. O usuário executou `.\.venv\Scripts\python.exe -m pytest --tb=short` em `backend` e forneceu a saída completa: **827 aprovados, 9 reais ignorados e três avisos existentes em 50,61 s**, incluindo os 41 novos testes de fluxo/rota direta/OpenAPI/SDK simulado e os 24 novos testes HTTP. Essa execução resolveu a pendência de validação causada pelo bloqueio de socket no sandbox e pelo limite da revisão automática. Próximo item: W3.15; não iniciado.
+
 ### W3.15 — Teste real controlado do Gemini `[P0]`
 
-- [ ] Configurar chave somente no ambiente local.
-- [ ] Rodar uma investigação real.
-- [ ] Inspecionar ferramentas solicitadas e resposta.
-- [ ] Ajustar descrições ou prompt sem alterar cálculos.
+- [x] Preparar cenário reproduzível e testes simulados do comando local.
+- [x] Configurar chave somente no ambiente local.
+- [x] Rodar uma investigação real.
+- [x] Inspecionar ferramentas solicitadas e resposta.
+- [x] Ajustar descrições ou prompt sem alterar cálculos.
 
 **Saída:** uma investigação completa passa pelo harness e pelo Gemini.
+
+**Concluída em 2026-10-17:** teste real com `gemini-2.5-flash`, chave somente no `.env` ignorado e sete fixtures pequenas. Investigação `c616c852-424a-45cb-91e6-769a46f56717`: `passed=true`, `generated_by=gemini`, oito chamadas bem-sucedidas, evidências correspondentes ao trace, sem reparo ou fallback. Relatório inspecionado: NDVI, população, calagem, solo nos dois conjuntos e contraste, condição inicial indisponível explicitada, força fraca e limitações preservadas. Artefato local: `backend/.local/w3-15/20261017T135442Z-c616c852-424a-45cb-91e6-769a46f56717.json`.
+
+As tentativas iniciais expuseram redação numérica/unidades inválidas e timeout de reparo. O prompt foi ajustado, e o contexto passou a incluir `reference_findings`, textos verificados dos mesmos fatos usando os templates W3.13. O Gemini é orientado a selecionar/ordenar esses achados sem alterar valores e a redigir a visão geral/recomendações. Nenhum cálculo ou validador foi flexibilizado. Prazo local ampliado para 120 s; padrão do projeto permanece 45 s. Teste de health isolado do `.env` real. Suíte completa: **841 passaram, 9 reais ignorados, 3 avisos existentes em 41,40 s**; após o último ajuste textual, **100 testes focados passaram em 12,62 s**. W3.01–W3.15 concluídas; W4 não iniciada.
 
 ## 6. Semana 4 — Interface final, relatório e apresentação
 
@@ -778,3 +811,19 @@ Adicionar uma linha por tarefa concluída.
 | 2026-10-12 | W2.12 | Tela de comparação usa somente talhões dos pares retornados pela API, atualiza a pergunta, mostra cinco critérios e análises disponíveis e bloqueia pares inválidos; diagnóstico local após importação e prévia sem upload claramente separados. | 8 testes de comparação passaram, incluindo Grão × Silagem, resposta atrasada, erro, par ausente e inversão; navegador confirmou importação dos sete CSVs artificiais, score 3/5 e bloqueio do par inválido. | Consulta local disponível em development; o botão abre gráficos demonstrativos, sem executar investigação de IA. |
 | 2026-10-12 | W2.13 | Chart.js para NDVI, distribuição de cinco números, pares de solo e textura; filtros de família/métrica/conjunto, unidades, contagens, fontes, estados vazios e tabelas acessíveis; instâncias destruídas em trocas de filtro, aba e página. Mocks decorativos substituídos por contratos numéricos locais validados no backend. | Pytest: 154 passaram; Vitest: 25 passaram; `pnpm build` e `git diff --check` passaram. Navegador: gráficos de solo/NDVI, abas e larguras de desktop/tablet/celular sem overflow horizontal ou erros de console. | W2.14 permanece pendente por solicitação do usuário. Nenhuma integração Gemini ou tarefa W3 iniciada; aviso de depreciação Starlette/httpx já existente. |
 | 2026-10-13 | W2.14 | Sete CSVs reais de FarmLab importados pela API; seis análises e comparabilidade conferidas por recálculo independente dos arquivos. Confirmadas 8 amostras, 29 pares NDVI, gap −0,024985204049, população 61.306,27/63.629,03 e calagem 57,327136%/97,500150%. Diferenças do protótipo investigadas e documentadas em BASELINE_W2.md; manifesto SHA-256 e nove regressões sem versionar CSV bruto. | `FARMLAB_REAL_DATA_DIR='/Users/lucashygidio/Downloads/FarmLab' .venv/bin/python -m pytest` em backend: 163 passaram; baseline isolado: 9 passaram; sem variável: 9 ignorados explicitamente. Vitest: 25 passaram; build Vite e `git diff --check` aprovados. | Semana 2 concluída; W3 não iniciada. Mantidos 15 avisos de importação e depreciação Starlette/httpx. Gráficos da investigação continuam demonstrativos; origem exata das aproximações antigas não verificável sem código do protótipo. |
+| 2026-10-15 | W3.01 | SDK oficial google-genai 2.31.0 instalado e travado; cliente criado apenas na primeira geração, modelo e timeout configuráveis, erros seguros e encerramento de conexões. httpx passou a dependência de execução. | 25 testes novos do cliente; cliente + health: 27 passaram; suíte backend: 179 passaram e 9 reais ignorados; uv sync --locked, uv pip check e git diff --check aprovados. | Sem chamada real ao Gemini; W3.02 é a próxima etapa. Prazo total, retry único de 429 e fallback serão tratados no harness. Preservadas as correções UTF-8 da instalação no Windows; três avisos de depreciação de terceiros. |
+| 2026-10-15 | W3.02 | POST /api/gemini/test registrado com prompt fixo, chamada única limitada a 32 tokens, modelo configurável, sucesso, latência monotônica e mensagens seguras para chave ausente, autenticação, cota, timeout e indisponibilidade. Contrato documentado no OpenAPI e README. | 29 novos testes da rota; suíte backend: 208 passaram e 9 reais ignorados. Uvicorn temporário: health 200, teste sem chave 503/missing_api_key e rota no OpenAPI; servidor encerrado. git diff --check aprovado. | Chave real não testada; respostas externas simuladas inclusive pelo SDK oficial. W3.03 é a próxima tarefa. Mantidos três avisos de depreciação de terceiros. |
+| 2026-10-15 | W3.03 | Schemas de requisição, trace, relatório e resposta final; objetos fechados, enums de força/origem, argumentos tipados e gráficos preservando as evidências da W2. Evidence extraída para módulo independente com import público compatível. | 112 novos casos; contratos + evidências: 164 passaram. Suíte backend: 320 passaram, 9 reais ignorados e 3 avisos existentes; git diff --check aprovado. Execução completa repetida com permissão ampliada após interrupção por falta de progresso no sandbox. | Sem chamada externa ou nova dependência. Existência dos IDs, conteúdo numérico/causal e limitações específicas serão validados nas tarefas seguintes. W3.04 é o próximo item e não foi iniciado. |
+| 2026-10-15 | W3.04 | SYSTEM_PROMPT estático em português: papel observacional, ferramentas como única fonte de números, referências existentes, proibição de causalidade, pergunta não confiável, limites do solo e síntese conforme InvestigationReport. | Revisão contra SPEC; importação e AST sem chamadas/interpolação; auditoria sem credenciais, IDs concretos, caminhos ou resultados fixos. Suíte backend: 320 passaram, 9 reais ignorados e 3 avisos existentes; git diff --check aprovado. | Sem chamada ao Gemini, novas dependências ou alteração da rota de teste. Integração e validação em execução continuam nas próximas tarefas. W3.05 é o próximo item e não foi iniciado. |
+| 2026-10-15 | W3.05 | Adaptador build_gemini_tool gera sete declarações a partir do registry e dos contratos Pydantic, com descrições dos argumentos e sem callables ou parâmetros internos. Corrigida a contagem antiga de cinco no checklist para incluir as ferramentas de solo já previstas. | 17 novos testes; focados de declarações/cliente/schemas: 154 passaram. Suíte backend: 337 passaram, 9 reais ignorados e 3 avisos existentes. Payload HTTP do SDK verificado em memória; git diff --check aprovado. | Sem chamada externa ou nova dependência. Aceitação pelo serviço real permanece em W3.15; validação de chamadas e orchestrator ainda pendentes. Próximo item: W3.06. |
+| 2026-10-15 | W3.06 | Validador por investigação com allowlist do registry, parâmetros Pydantic, IDs da sessão, preservação de dataset/par/período e bloqueio de repetições normalizadas. Erros locais seguros e retorno de argumentos tipados para execução futura. | 54 novos casos passaram; suíte backend: 391 passaram, 9 reais ignorados e 3 avisos existentes. Inclui execução local das sete ferramentas após validação; git diff --check aprovado. | Sem chamada externa ou nova dependência. Integração no loop, limite de oito chamadas e ordem de comparabilidade permanecem na W3.08. Próximo item: W3.07. |
+| 2026-10-15 | W3.07 | Recorder local por investigação com UUIDs, argumentos normalizados, sequência, versões, evidências/fontes e duração monotônica; integração com validador, gerador de evidências e execução de uma ferramenta. Snapshots defensivos e erros locais sem copiar resultados completos ou exceções brutas. | 26 novos testes passaram; suíte backend: 417 passaram, 9 reais ignorados e 3 avisos existentes. Inclui sete ferramentas, falha real, relógio retrocedendo, isolamento, serialização e privacidade; git diff --check aprovado. | Sem chamada externa ou nova dependência. Rejeições anteriores à execução não geram entrada de execução. Loop Gemini, orçamento e ordem de comparabilidade permanecem na W3.08, próximo item. |
+| 2026-10-16 | W3.08 | Loop de ferramentas com contexto mínimo, comparabilidade obrigatória, execução sequencial validada, schemas de retorno, evidências/trace, IDs/assinaturas do SDK, limite de oito chamadas, prazo e retry único de 429. | 34 novos testes de loop e nove de timeout passaram; suíte backend: 460 passaram, 9 reais ignorados e 3 avisos existentes. Cliente fake e SDK com HTTP em memória; git diff --check aprovado. | Sem chamada externa ou nova dependência. Retorno interno para futura síntese; falhas preservam evidências parciais. Prazo verificado entre etapas síncronas. Próximo item: W3.09; não iniciado. |
+| 2026-10-16 | W3.09 | Síntese com contexto de evidências/avisos, regras estáticas, JSON Schema e validação Pydantic do texto recebido. Integração ao planejamento com cliente, prazo e retry compartilhados; rascunho interno preserva fatos e trace em falhas. | 43 testes novos passaram; suíte backend: 503 passaram, 9 reais ignorados e 3 avisos existentes. Testes fake e SDK com HTTP em memória; git diff --check aprovado. | Sem chamada externa ou nova dependência. Validação apenas estrutural; evidências/números/limitações na W3.10, linguagem causal na W3.11, reparo/fallback/API nas tarefas seguintes. Próximo item: W3.10; não iniciado. |
+| 2026-10-16 | W3.10 | Validador de referências, fatos numéricos citados, sinal/unidade e limitações obrigatórias; catálogo tipado, escopo por trecho, precisão decimal e contexto de data/amostra. Integração na síntese com erros localizados e seguros. | 80 testes de validação e cinco de integração novos passaram; suíte backend: 588 passaram, 9 reais ignorados e 3 avisos existentes. git diff --check aprovado. | Sem API externa ou dependência nova. Regras conservadoras para formatos explícitos; limitações fornecidas pelo backend devem ser preservadas. Não valida causalidade nem repara o relatório. Próximo item: W3.11. |
+| 2026-10-16 | W3.11 | Validador de linguagem causal com ressalvas locais, fronteiras de oração, exceções literais/administrativas e cobertura de todos os campos narrativos. Integração na síntese com erros seguros e localizados para futuro reparo. | 91 testes de linguagem e quatro de integração novos passaram; suíte backend: 683 passaram, 9 reais ignorados e 3 avisos existentes. git diff --check aprovado. | Sem API externa ou nova dependência. Validação lexical conservadora; não interpreta toda prosa possível. Reparo, fallback e endpoint permanecem pendentes. Próximo item: W3.12. |
+| 2026-10-16 | W3.12 | Uma tentativa de reparo com erros seguros, schema e fatos; sem repetir ferramentas. Revalida o relatório inteiro e registra motivo/resultado em trace.repair, com prazo e repetição de 429 compartilhados. | 34 testes novos passaram; 224 testes focados aprovados; suíte backend: 717 passaram, 9 reais ignorados e 3 avisos existentes. git diff --check aprovado. | Sem API externa ou nova dependência. Segunda falha preserva evidências e retorna erro final. Fallback e endpoint pendentes. Próximo item: W3.13. |
+| 2026-10-16 | W3.13 | Gerador de fallback por templates sobre evidências existentes; origem fixa, aviso seguro, achados ordenados, limitações e recomendações. Correção da redação de limitação de solo incompatível com validação causal. | 45 testes novos passaram; suíte backend: 762 passaram, 9 reais ignorados e 3 avisos existentes. Casos sem chave/rede, falha após reparo, timeout parcial, ordem inversa do par, precisão, privacidade e validação completa. git diff --check aprovado. | Sem API externa ou nova dependência. Força conservadora weak. Próximo item W3.14: ativação automática, coleta local sem chave e endpoint; não iniciado. |
+| 2026-10-16 | W3.14 | Endpoint síncrono e envelope completo; comparabilidade antes do provedor, plano local sem chave, fallback automático, gráficos/avisos/trace preservados e erros controlados. | 745 testes passaram inicialmente no ambiente restrito. Suíte completa executada pelo usuário e saída conferida: 827 passaram, 9 reais ignorados e 3 avisos existentes em 50,61 s, incluindo 41 novos testes de fluxo/rota direta/SDK/OpenAPI e 24 HTTP. git diff --check aprovado. | Pendência HTTP resolvida pela execução local informada pelo usuário. W3.14 concluída, sem chamada ao Gemini real ou nova dependência. Próximo item W3.15; não iniciado. |
+| 2026-10-16 | W3.15 (preparação) | Comando opt-in app.harness.smoke com sete fixtures pequenas, checagem sem provedor, investigação limitada, validação do cenário e artefato local ignorado pelo Git. Pacote escolhido pelo Codex a pedido do usuário. | 14 testes novos; 100 focados passaram. Regressão sem módulos HTTP: 759 passaram, 9 reais ignorados, 3 avisos existentes em 39,39 s. Check-only aprovou os sete arquivos, sem chave configurada. | Preparação entregue; usuário configurará a chave e testará depois. Sem chamada real, ajuste de prompt ou mudança de cálculos. Gate W3.15 permanece pendente; W4 não iniciada. |
+| 2026-10-17 | W3.15 | Chave local configurada; teste real com Gemini aprovado e relatório/trace inspecionados. Prompt e contexto reference_findings ajustados para preservar números/unidades e limitações; prazo local 120 s. Nenhuma fórmula ou regra de validação alterada. | Investigação c616c852-424a-45cb-91e6-769a46f56717: passed=true, oito ferramentas com sucesso, sem reparo/fallback. Conexão mínima: sucesso em 872 ms. Suíte completa: 841 passaram, 9 ignorados, 3 avisos em 41,40 s. Após último ajuste textual: 100 focados passaram. | W3.01–W3.15 concluídas; W4 não iniciada. Chave e artefatos locais ignorados pelo Git. Fallback segue disponível para futuras gerações inválidas. |

@@ -1,39 +1,216 @@
-"""Shared evidence contract; investigation and report schemas come later."""
+"""Closed structural contracts for investigation input, trace and output.
 
-from typing import Annotated
+Dataset membership, evidence references, numbers in prose and causal language
+are checked by the harness validators, not these structural schemas.
+"""
 
-from pydantic import ConfigDict, Field, StrictFloat, StrictInt, StringConstraints
+from enum import Enum
+from types import MappingProxyType
+from typing import Annotated, Literal
+from uuid import UUID
 
-from app.data.contracts import StrictModel
+from pydantic import (
+    AwareDatetime, BaseModel, Field, StrictInt, StringConstraints,
+    ValidationInfo, field_validator, model_validator,
+)
+
+from app.analytics.contracts import (
+    ApplicationArgs, ApplicationEvidence, ComparisonArgs, ComparisonEvidence,
+    InitialEvidence, NdviEvidence, Period, PopulationEvidence, SoilGroupsArgs,
+    SoilGroupsEvidence, SoilSummaryArgs, SoilSummaryEvidence,
+)
+from app.data.contracts import StrictModel, ValidationIssue
+# Preserve the public imports used by W2 callers.
+from app.harness.evidence_schema import Evidence, EvidenceId, FiniteValue, NonEmptyText
 
 
-NonEmptyText = Annotated[str, StringConstraints(strict=True, strip_whitespace=True, min_length=1)]
-EvidenceId = Annotated[
-    str,
-    StringConstraints(strict=True, pattern=r"^EV-[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-[0-9]{3,}$"),
-]
-FiniteValue = Annotated[StrictFloat, Field(allow_inf_nan=False)]
+class EvidenceStrength(str, Enum):
+    WEAK = "weak"
+    MODERATE = "moderate"
+    STRONG = "strong"
 
 
-class Evidence(StrictModel):
-    """Metadata shared by every tool, extended by inheritance or composition.
+class ReportOrigin(str, Enum):
+    GEMINI = "gemini"
+    DETERMINISTIC_FALLBACK = "deterministic_fallback"
 
-    Values are optional for unavailable analyses and multi-metric outputs such
-    as soil summaries. Specialized results carry their own typed metrics and
-    counts. Null means unknown/unavailable, never zero. No field association is
-    imposed on dataset-wide soil evidence.
+
+class InvestigationRequest(StrictModel):
+    dataset_id: UUID
+    target_field_id: NonEmptyText
+    reference_field_id: NonEmptyText
+    period: Period
+    question: Annotated[
+        str, StringConstraints(strict=True, strip_whitespace=True, min_length=10, max_length=500)
+    ]
+
+
+class ToolName(str, Enum):
+    VALIDATE_COMPARISON = "validate_comparison"
+    COMPARE_NDVI = "compare_ndvi"
+    CHECK_INITIAL_CONDITION = "check_initial_condition"
+    COMPARE_POPULATION = "compare_population"
+    APPLICATION_COMPLIANCE = "application_compliance"
+    SUMMARIZE_SOIL_ANALYSIS = "summarize_soil_analysis"
+    COMPARE_SOIL_MEASUREMENT_GROUPS = "compare_soil_measurement_groups"
+
+
+ToolArguments = ApplicationArgs | ComparisonArgs | SoilSummaryArgs | SoilGroupsArgs
+# No registry import here: the executable registry itself imports Evidence.
+_ARGUMENT_MODELS = MappingProxyType({
+    ToolName.VALIDATE_COMPARISON: ComparisonArgs,
+    ToolName.COMPARE_NDVI: ComparisonArgs,
+    ToolName.CHECK_INITIAL_CONDITION: ComparisonArgs,
+    ToolName.COMPARE_POPULATION: ComparisonArgs,
+    ToolName.APPLICATION_COMPLIANCE: ApplicationArgs,
+    ToolName.SUMMARIZE_SOIL_ANALYSIS: SoilSummaryArgs,
+    ToolName.COMPARE_SOIL_MEASUREMENT_GROUPS: SoilGroupsArgs,
+})
+
+
+class ToolCallStatus(str, Enum):
+    SUCCESS = "success"
+    ERROR = "error"
+
+
+class ToolCallError(StrictModel):
+    """Local error code and safe message; never a raw provider exception."""
+
+    code: NonEmptyText
+    message: NonEmptyText
+
+
+class ToolCallTrace(StrictModel):
+    """One known tool execution with normalized arguments and its outcome."""
+
+    trace_id: UUID
+    sequence: StrictInt = Field(ge=1)
+    tool: ToolName
+    arguments: ToolArguments
+    result_evidence_ids: list[EvidenceId]
+    source_files: list[NonEmptyText]
+    tool_version: NonEmptyText
+    started_at: AwareDatetime
+    duration_ms: FiniteValue = Field(ge=0)
+    status: ToolCallStatus
+    error: ToolCallError | None = None
+
+    @field_validator("arguments", mode="before")
+    @classmethod
+    def arguments_match_tool(cls, value, info: ValidationInfo):
+        tool = info.data.get("tool")
+        if tool is None:
+            return value  # The tool field already reports the validation error.
+        if isinstance(value, BaseModel):
+            value = value.model_dump()
+        return _ARGUMENT_MODELS[tool].model_validate(value)
+
+    @model_validator(mode="after")
+    def outcome_is_consistent(self):
+        if self.status == ToolCallStatus.SUCCESS:
+            if self.error is not None or not self.result_evidence_ids or not self.source_files:
+                raise ValueError("Uma chamada bem-sucedida exige evidências, fontes e ausência de erro.")
+        elif self.error is None or self.result_evidence_ids:
+            raise ValueError("Uma chamada com falha exige erro controlado e não produz evidências.")
+        return self
+
+
+class ReportOverview(StrictModel):
+    headline: NonEmptyText
+    summary: NonEmptyText
+    evidence_strength: EvidenceStrength
+
+
+class ReportFinding(StrictModel):
+    title: NonEmptyText
+    explanation: NonEmptyText
+    evidence_ids: list[EvidenceId] = Field(min_length=1)
+
+
+class ReportLimitation(StrictModel):
+    title: NonEmptyText
+    explanation: NonEmptyText
+    rule_id: NonEmptyText
+
+
+class ReportRecommendation(StrictModel):
+    action: NonEmptyText
+    reason: NonEmptyText
+    evidence_ids: list[EvidenceId] = Field(min_length=1)
+
+
+class InvestigationReport(StrictModel):
+    """Narrative generated by Gemini or fallback; provenance is backend-owned."""
+
+    overview: ReportOverview
+    findings: list[ReportFinding]
+    limitations: list[ReportLimitation] = Field(min_length=1)
+    recommendations: list[ReportRecommendation]
+
+
+AnalyticalEvidence = (
+    ComparisonEvidence | NdviEvidence | InitialEvidence | PopulationEvidence
+    | ApplicationEvidence | SoilSummaryEvidence | SoilGroupsEvidence
+)
+
+
+class InvestigationChartData(StrictModel):
+    """Selected tool outputs, preserving W2 series, quartiles, pairs and texture.
+
+    Null/empty collections mean that no chart evidence is available. Soil lists
+    support both measurement groups and calls with different metric filters.
     """
 
-    model_config = ConfigDict(allow_inf_nan=False)
+    ndvi: NdviEvidence | None = None
+    soil_summaries: list[SoilSummaryEvidence] = Field(default_factory=list)
+    soil_groups: list[SoilGroupsEvidence] = Field(default_factory=list)
 
-    evidence_id: EvidenceId
-    unit: NonEmptyText | None
-    source_files: list[NonEmptyText] = Field(min_length=1)
-    method: NonEmptyText
-    observation_count: StrictInt | None = Field(ge=0)
-    tool_version: NonEmptyText
-    notes: list[NonEmptyText] = Field(default_factory=list)
-    metric: NonEmptyText | None = None
-    target_value: FiniteValue | None = None
-    reference_value: FiniteValue | None = None
-    difference: FiniteValue | None = None
+
+class InvestigationTrace(StrictModel):
+    trace_id: UUID
+    dataset_id: UUID
+    model: NonEmptyText
+    created_at: AwareDatetime
+    calls: list[ToolCallTrace]
+    repair: "ReportRepairTrace | None" = None
+
+
+class ReportValidationIssue(StrictModel):
+    code: str
+    location: str
+    message: str
+
+
+class ReportRepairTrace(StrictModel):
+    """One report-repair attempt; no prompt, raw response or report text."""
+
+    attempt: Literal[1] = 1
+    started_at: AwareDatetime
+    duration_ms: FiniteValue = Field(ge=0)
+    status: Literal["success", "error"]
+    trigger: ToolCallError
+    trigger_issues: list[ReportValidationIssue] = Field(default_factory=list)
+    error: ToolCallError | None = None
+    validation_issues: list[ReportValidationIssue] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def consistent_outcome(self):
+        if self.status == "success" and (self.error is not None or self.validation_issues):
+            raise ValueError("Reparo bem-sucedido não pode conter erro final.")
+        if self.status == "error" and self.error is None:
+            raise ValueError("Reparo com falha exige erro final.")
+        return self
+
+
+InvestigationTrace.model_rebuild()
+
+
+class InvestigationResponse(StrictModel):
+    investigation_id: UUID
+    status: Literal["completed"]
+    generated_by: ReportOrigin
+    report: InvestigationReport
+    evidence: list[AnalyticalEvidence]
+    chart_data: InvestigationChartData
+    trace: InvestigationTrace
+    warnings: list[ValidationIssue]

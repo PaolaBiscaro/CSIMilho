@@ -367,16 +367,16 @@ A Semana 3 não deve reproduzir fórmulas dentro do prompt. Ela deve registrar e
 
 ### Gate específico
 
-- [ ] A aplicação inicia sem chave.
-- [ ] O teste do Gemini funciona com chave válida.
-- [ ] O Gemini só pode chamar ferramentas do registry.
-- [ ] IDs fora do dataset são bloqueados.
-- [ ] O limite de chamadas é respeitado.
-- [ ] Número inventado é rejeitado.
-- [ ] Evidência inexistente é rejeitada.
-- [ ] Linguagem causal é rejeitada.
-- [ ] Uma falha após reparo aciona o fallback.
-- [ ] A resposta da investigação segue o schema do `SPEC.md`.
+- [x] A aplicação inicia sem chave.
+- [x] O teste do Gemini funciona com chave válida.
+- [x] O Gemini só pode chamar ferramentas do registry.
+- [x] IDs fora do dataset são bloqueados.
+- [x] O limite de chamadas é respeitado.
+- [x] Número inventado é rejeitado.
+- [x] Evidência inexistente é rejeitada.
+- [x] Linguagem causal é rejeitada.
+- [x] Uma falha após reparo aciona o fallback.
+- [x] A resposta da investigação segue o schema do `SPEC.md`.
 
 ### O que a Semana 4 precisa encontrar
 
@@ -597,20 +597,162 @@ primeiro_passo_da_semana_seguinte: "Aguardar próxima solicitação do usuário 
 ### Registro — Semana 3
 
 ```yaml
-responsavel:
-branch:
-commit_entregue:
-data:
-status: nao_iniciada
-tarefas_concluidas: []
+responsavel: Codex
+branch: feat/lorena
+commit_entregue: "alterações locais sobre f9b30df; nenhum commit criado automaticamente"
+data: 2026-10-17
+status: concluida
+tarefas_concluidas: [W3.01, W3.02, W3.03, W3.04, W3.05, W3.06, W3.07, W3.08, W3.09, W3.10, W3.11, W3.12, W3.13, W3.14, W3.15]
 tarefas_pendentes: []
-comandos_para_executar: []
-testes_executados: []
-resultado_dos_testes:
-decisoes_tomadas: []
-problemas_conhecidos: []
-arquivos_importantes_alterados: []
-primeiro_passo_da_semana_seguinte:
+tarefas_em_validacao: []
+validacao_real_w3_15:
+  data: 2026-10-17
+  status: "Concluída, com investigação real e relatório/trace inspecionados."
+  modelo: gemini-2.5-flash
+  timeout_local_segundos: 120
+  investigation_id: c616c852-424a-45cb-91e6-769a46f56717
+  resultado: "passed=true, generated_by=gemini; oito ferramentas com sucesso; sem reparo ou fallback; evidências correspondentes ao trace."
+  artefato: "backend/.local/w3-15/20261017T135442Z-c616c852-424a-45cb-91e6-769a46f56717.json (local e ignorado pelo Git)"
+  inspecao: "NDVI e população iguais nas fixtures, conformidade de calagem coerente, solo no escopo do dataset, diferenças entre conjuntos sem interpretação temporal/profundidade, condição inicial indisponível e limitações explícitas."
+  conexao: "Função do endpoint Gemini também testada com a chave real: success=true, error_code=null, 872 ms."
+  regressao: "841 passaram, 9 testes privados ignorados, 3 avisos existentes em 41,40 s, incluindo módulos HTTP. Após o último ajuste textual: 100 testes focados passaram em 12,62 s."
+  ajustes: "Prompt mais explícito sobre unidades, citações e limitações únicas; reference_findings reutiliza os templates verificados W3.13 sobre os fatos atuais. Gemini seleciona/ordena achados e redige a narrativa; resposta inteira é revalidada. Cálculos e validadores preservados. Teste de health isolado do .env local."
+validacao_preparatoria_w3_15:
+  status: "Histórico de 2026-10-16; a pendência de chave/teste real foi resolvida em validacao_real_w3_15."
+  pacote: "Sete fixtures pequenas de backend/tests/fixtures/manual; par 103144 x 103145, full_season."
+  comandos:
+    - "Em backend: .venv/Scripts/python.exe -m app.harness.smoke --check-only"
+    - "Após configurar GEMINI_API_KEY no .env local, em backend: .venv/Scripts/python.exe -m app.harness.smoke"
+  testes: "14 testes novos; 100 focados passaram. Regressão sem módulos HTTP: 759 passaram, 9 reais ignorados, 3 avisos existentes em 39,39 s. Check-only aprovou os sete CSVs e confirmou ausência de chave."
+  comando_regressao: "Em backend: .venv/Scripts/python.exe -m pytest --ignore=tests/test_api.py --ignore=tests/test_diagnostics.py --ignore=tests/test_gemini_api.py --ignore=tests/test_health.py --ignore=tests/test_investigations_api.py --basetemp=.local/pytest-w3-15-NOVO-ID --tb=short"
+  ambiente: "Criar backend/.local antes dos testes e usar NOVO-ID único para temporários: a pasta temporária padrão do sandbox negou criação. Não repetir a suíte HTTP neste sandbox; validação completa anterior de 827 testes foi fornecida pelo usuário."
+  artefatos: "Relatório/evidências/trace em backend/.local/w3-15, ignorado pelo Git. Testes automatizados usam provedor simulado e diretórios temporários, nunca a chave local."
+  pendencia: "Resolvida em 2026-10-17: execução real aprovada e inspecionada. W4 não iniciada."
+comandos_para_executar:
+  - "cd backend; uv sync --locked"
+  - "cd backend; uv run uvicorn app.main:app --reload"
+  - "cd frontend; pnpm dev"
+testes_executados:
+  - "cd backend; .venv/Scripts/python.exe -m pytest tests/test_gemini_api.py tests/test_gemini_client.py tests/test_health.py --tb=short"
+  - "cd backend; .venv/Scripts/python.exe -m pytest tests/test_harness_schemas.py tests/test_evidence.py --tb=short"
+  - "cd backend; .venv/Scripts/python.exe -m pytest tests/test_gemini_tools.py tests/test_gemini_client.py tests/test_harness_schemas.py --tb=short"
+  - "cd backend; .venv/Scripts/python.exe -m pytest tests/test_call_validators.py --tb=short"
+  - "cd backend; .venv/Scripts/python.exe -m pytest tests/test_investigation_trace.py --tb=short"
+  - "cd backend; .venv/Scripts/python.exe -m pytest tests/test_orchestrator.py --tb=short"
+  - "cd backend; .venv/Scripts/python.exe -m pytest tests/test_synthesis.py tests/test_orchestrator.py --tb=short"
+  - "cd backend; .venv/Scripts/python.exe -m pytest tests/test_report_validation.py tests/test_synthesis.py --tb=short"
+  - "cd backend; .venv/Scripts/python.exe -m pytest tests/test_language_validation.py tests/test_synthesis.py --tb=short"
+  - "cd backend; .venv/Scripts/python.exe -m pytest tests/test_report_repair.py tests/test_synthesis.py tests/test_harness_schemas.py tests/test_investigation_trace.py --tb=short"
+  - "cd backend; .venv/Scripts/python.exe -m pytest tests/test_fallback.py tests/test_report_validation.py tests/test_language_validation.py --tb=short"
+  - "cd backend; .venv/Scripts/python.exe -m pytest tests/test_fallback.py --tb=short"
+  - "cd backend; .venv/Scripts/python.exe -m pytest tests/test_investigations.py tests/test_orchestrator.py tests/test_synthesis.py tests/test_report_repair.py --tb=short"
+  - "cd backend; .venv/Scripts/python.exe -m pytest tests/test_investigations_api.py --collect-only"
+  - "cd backend; .venv/Scripts/python.exe -m pytest --ignore=tests/test_api.py --ignore=tests/test_diagnostics.py --ignore=tests/test_gemini_api.py --ignore=tests/test_health.py --ignore=tests/test_investigations_api.py --tb=short"
+  - "W3.04: importação de app.harness.prompts e inspeção AST do literal SYSTEM_PROMPT; auditoria de credenciais, IDs concretos e caminhos; revisão contra SPEC seções 3, 11, 12 e 15."
+  - "cd backend; .venv/Scripts/python.exe -m pytest --tb=short -o faulthandler_timeout=30"
+  - "cd backend; .venv/Scripts/python.exe -m pytest"
+  - "cd backend; uv sync --locked"
+  - "cd backend; uv pip check --python .venv/Scripts/python.exe"
+  - "git diff --check"
+  - "Servidor Uvicorn temporário em 127.0.0.1: GET /api/health, POST /api/gemini/test sem chave e GET /openapi.json; encerrado ao final."
+resultado_dos_testes: "W3.15 concluída em 2026-10-17: investigação real passou sem reparo/fallback, diagnóstico de conexão aprovado. Suíte completa: 841 passaram, 9 ignorados e 3 avisos em 41,40 s; após o último ajuste textual, 100 testes focados passaram. Histórico: W3.14 concluída em 2026-10-16: usuário executou .venv/Scripts/python.exe -m pytest --tb=short em backend e enviou a saída completa: 827 passaram, 9 reais ignorados e 3 avisos existentes em 50,61 s. Inclui 41 testes novos do fluxo, função da rota, importação, OpenAPI e SDK em memória, além dos 24 novos testes HTTP. Antes disso, 745 passaram no ambiente restrito, excluindo módulos HTTP. A execução local informada pelo usuário resolveu a pendência causada pelo bloqueio de socket do TestClient no sandbox e pelo limite de uso da revisão automática. Nenhuma chamada ao Gemini real."
+decisoes_tomadas:
+  - "Mantida a branch existente feat/lorena no mesmo commit da entrega W2 (f9b30df); main local permanece anterior à W2."
+  - "SDK google-genai 2.31.0 fixado no lockfile; httpx passou de dev para dependência de execução."
+  - "Cliente síncrono por operação/investigação, criado somente na primeira geração e fechado pelo contexto with."
+  - "GEMINI_API_KEY é passada explicitamente para a Developer API; GOOGLE_API_KEY e seleção de Enterprise/Vertex no ambiente não substituem essa escolha."
+  - "Timeout HTTP usa GEMINI_TIMEOUT_SECONDS; orchestrator reduz cada chamada ao tempo restante e compartilha o prazo total e uma repetição única de 429 entre planejamento, síntese e reparo."
+  - "Execução automática de ferramentas e retries do SDK desativados para preservar o controle do harness."
+  - "Erros expõem somente código, status HTTP quando disponível e mensagem local; corpo do provedor e cadeia de exceção não são exibidos."
+  - "POST /api/gemini/test não requer corpo: usa prompt fixo, modelo/chave do backend, um candidato e máximo de 32 tokens; não encaminha conteúdo fornecido pelo navegador."
+  - "A rota retorna success, model, latency_ms, message e error_code em sucesso e falha; latência medida por relógio monotônico e esquema documentado no OpenAPI."
+  - "Chave ausente retorna 503; autenticação 401, permissão 403, cota 429, timeout 504, indisponibilidade 503 e outras falhas do provedor 502."
+  - "Teste mínimo sem retry; resposta vazia ou bloqueada falha. MAX_TOKENS confirma conectividade, sem avaliar qualidade da geração."
+  - "W3.03 define somente contratos estruturais: objetos fechados, pergunta de 10–500 caracteres, força weak/moderate/strong e origem gemini/deterministic_fallback."
+  - "InvestigationResponse mantém as oito chaves do SPEC; trace reúne trace_id, dataset_id, model, created_at e calls. Metadados de origem são atribuídos pelo backend, fora da narrativa gerada."
+  - "Trace usa os tipos de argumentos da W2 conforme a ferramenta; sucesso exige evidências/fontes, falha exige code/message locais e não produz evidências."
+  - "Evidence foi extraída para evidence_schema.py e reexportada por schemas.py para preservar imports e evitar ciclo com analytics/contracts.py. Os sete tipos concretos são preservados na resposta final."
+  - "chart_data usa ndvi opcional e listas soil_summaries/soil_groups, reutilizando séries, quartis, pares e textura da W2. Ausência é null/lista vazia; não há recálculo nem inferência de profundidade."
+  - "SYSTEM_PROMPT estático em prompts.py orienta análise observacional, evidências existentes, números apenas das ferramentas, ausência de causalidade, restrições de solo e schema narrativo."
+  - "Pergunta e textos externos são dados não confiáveis. O orchestrator envia SYSTEM_PROMPT separado do contexto, sem interpolar conteúdo da sessão na instrução. Não foi alterado o prompt mínimo de POST /api/gemini/test."
+  - "build_gemini_tool() deriva as sete FunctionDeclaration exclusivamente de TOOLS e dos schemas Pydantic dos argumentos; a contagem antiga de cinco no planejamento foi corrigida para incluir as duas ferramentas de solo do SPEC."
+  - "parameters_json_schema preserva objetos fechados, referências locais, uniões, defaults, enums e filtros nulos. Acrescentadas descrições aos argumentos sem mudar campos ou validações. Objetos novos a cada construção evitam mutações entre requisições."
+  - "O adaptador importa os tipos do SDK somente quando chamado, sem criar cliente nem acessar chave. Não passa callables Python, datasets internos, DataFrames, caminhos, store ou geradores de IDs ao SDK."
+  - "ToolCallValidator é instanciado uma vez por investigação e usado sequencialmente. Copia a seleção, valida argumentos pelo registry e confere dataset, talhões e período antes de reservar chamadas."
+  - "Chamadas aceitas ficam reservadas antes da execução, inclusive se a análise falhar depois; chamadas rejeitadas não alteram o histórico. O chamador deve executar/registrar os argumentos normalizados retornados."
+  - "Repetições consideram defaults, UUIDs, espaços, operação canônica e conjunto de métricas de solo. A ordenação de métricas é ignorada apenas na identidade da chamada; o retorno mantém a ordem sem duplicatas."
+  - "Erros locais expõem somente código e mensagem estática. O validador reconsulta a sessão a cada chamada e não executa ferramentas nem cria trace."
+  - "InvestigationRecorder gera UUIDs de investigação/trace, mede execuções com relógio monotônico e fornece snapshot defensivo de InvestigationTrace. Um EvidenceIdGenerator é compartilhado apenas pelas ferramentas dessa instância."
+  - "run_tool integra validação W3.06 e execução local de uma ferramenta; retorna evidência em sucesso ou lança ToolExecutionError após registrar falha. Rejeições anteriores à execução não geram entrada nem armazenam argumentos brutos."
+  - "O trace projeta somente metadados e argumentos normalizados; não copia pergunta, configuração do provedor, notas, séries, CSVs ou exceções originais. Fontes desconhecidas, versão inconsistente e ID repetido são rejeitados como metadados inválidos."
+  - "Falhas não produzem evidências e usam fontes vazias por não haver resultado validado; mensagens são locais. O resultado analítico completo fica fora do trace para consumo do orchestrator."
+  - "run_investigation_tools retorna ToolLoopResult interno com evidências, trace, avisos e motivo de parada; texto livre do modelo serve apenas como sinal de finalização. Não produz InvestigationReport nem InvestigationResponse."
+  - "Primeiro contexto contém apenas pergunta, IDs/rótulos selecionados, período, arquivos, avisos e orçamento. Sete declarações sem callables; comparabilidade obrigatória e permitida antes de qualquer análise, inclusive solo."
+  - "Lotes são executados sequencialmente, preservando partes, assinaturas e IDs no histórico do SDK. Respostas bloqueadas, truncadas, parciais e ambíguas são rejeitadas antes de executar ferramentas."
+  - "Registry declara o schema concreto de retorno de cada ferramenta; recorder revalida todo o resultado antes de registrar sucesso e devolver fatos ao Gemini. Falhas de cálculo ou validação encerram o loop com evidências parciais."
+  - "Orçamento efetivo é min(8, GEMINI_MAX_TOOL_CALLS), incluindo comparabilidade. Ao atingir o limite, retorna tool_limit sem geração adicional de planejamento; a síntese recebe todas as evidências. Cliente próprio é fechado; cliente injetado pertence ao chamador."
+  - "synthesize_report inicia conversa nova com evidências/avisos, required_limitations locais e instruções estáticas, sem ferramentas, pergunta, trace ou texto livre do planejamento. MIME JSON e response_json_schema derivado de InvestigationReport."
+  - "O texto JSON recebido é validado localmente com Pydantic, sem confiar no response.parsed do SDK. Respostas inválidas geram SynthesisError seguro; synthesize_report valida uma resposta e a função integrada controla o reparo único."
+  - "run_investigation_draft integra as fases com cliente e orçamento compartilhados. Retorna InvestigationDraft interno com planning, report opcional e error opcional; falha da síntese preserva evidências/trace. Comparabilidade inválida ou falha no planejamento impede síntese."
+  - "Após Pydantic, a W3.10 confere referências, fatos numéricos, sinal/unidade e limitações obrigatórias; a W3.11 confere linguagem causal. run_investigation_draft mantém retorno interno; run_investigation monta o envelope completed da API. Uso isolado de synthesize_report tem orçamento próprio."
+  - "report_validation.py concentra regras de relatório, reexportadas por validators.py. Catálogo explícito dos campos numéricos das sete ferramentas; não usa IDs, versões, notas, avisos ou booleanos como valores de suporte."
+  - "Números usam evidências citadas no trecho, com qualificadores de alvo/referência/diferença, métrica/estatística e data/amostra. Visão geral exige citações na frase numérica. Unidades dimensionais explícitas; % difere de pontos percentuais."
+  - "Arredondamento por Decimal/ROUND_HALF_UP à precisão escrita, sem tolerância percentual global; sinal preservado, contagens exatas e valor não nulo não pode virar zero. Quantidades por extenso nos padrões reconhecidos são rejeitadas. Formatos preferidos estão no prompt e README."
+  - "required_limitations é calculado antes da síntese; report deve preservar rule_id único e explicação fornecida, normalizando apenas espaços. Regras cobrem observação/produtividade, condição inicial, cobertura, qualidade e limites do solo."
+  - "Falha de validação produz SynthesisError/invalid_report_evidence e validation_issues com code/location/message seguros. A função integrada tenta o reparo; falha final preserva planning e deixa report vazio."
+  - "validate_report_language em language_validation.py, reexportado por validators.py, inspeciona todos os campos narrativos; reconhece os cinco termos do SPEC, flexões e expressões causais selecionadas."
+  - "Ressalvas de impossibilidade de concluir valem apenas na oração reconhecida. Frases novas, adversativas e novas afirmações coordenadas encerram o escopo; negação genérica, dupla negação e citação de uma afirmação inteira não liberam causalidade."
+  - "Exceções explícitas distinguem transporte literal, responsabilidades administrativas, garantias de processamento e menções de termos entre aspas. Normaliza caixa, acentos, espaços e caracteres invisíveis, sem transformar IDs de evidência em afirmações."
+  - "Falha de linguagem produz invalid_report_language com validation_issues causal_language, localização e família lexical segura; pode iniciar o reparo único na função integrada."
+  - "W3.12: erros invalid_report, invalid_report_evidence e invalid_report_language iniciam uma única nova síntese. Contexto contém errors/schema/facts, com evidências, avisos e limitações obrigatórias; sem relatório rejeitado, pergunta, histórico ou trace."
+  - "Erros Pydantic são projetados em mensagens locais e caminhos de campos conhecidos; valores e nomes de campos extras não são copiados. ReportValidationIssue foi movido para schemas.py e continua importável por report_validation.py."
+  - "Reparo não disponibiliza nem executa ferramentas e passa novamente por Pydantic, evidências/números/limitações e linguagem. Falhas do provedor ou protocolo não iniciam reparo; segunda falha encerra com erro final, sem terceiro relatório."
+  - "trace.repair opcional registra tentativa 1, início UTC, duração monotônica, status, motivo/questões iniciais e erro/questões finais. Não guarda prompts ou texto bruto; trace.calls mantém apenas ferramentas. Falta de prazo ao iniciar a tentativa é registrada sem nova requisição."
+  - "W3.13: build_fallback_report(evidence, warnings, reason=...) em fallback.py não importa cliente ou configuração e não executa ferramentas. Consome os mesmos fatos, sem modificar evidências/trace, e retorna FallbackResult interno com report, generated_by fixo deterministic_fallback e avisos."
+  - "Comparabilidade permitida é obrigatória. IDs duplicados, mistura de pares/períodos e fatos inválidos são rejeitados; análises parciais produzem limitação explícita. Sem evidência de comparabilidade, o chamador deve coletá-la antes de pedir fallback."
+  - "Ordem de apresentação local: comparabilidade, diferença inicial, resumos/contraste de solo, NDVI, condição inicial restante, aplicações (CALAGEM primeiro), população. Desempate por evidence_id; métricas de solo por nome. Ordem não expressa causalidade ou ranking estatístico."
+  - "Força do fallback sempre weak, por escolha conservadora. Templates mantêm números, sinais e unidades, formatando até seis casas (duas para operações/população) sem converter valores pequenos em zero. Recomendações citam apenas evidências disponíveis e orientam conferência/documentação."
+  - "Templates passam por Pydantic, validação de evidências e linguagem. Reescrita a limitação soil_group_meaning para retirar falso positivo causal de repetição comprovada, sem mudar significado. Aviso deterministic_fallback é operacional e não dispara limitação de qualidade por si só."
+  - "Motivo de fallback usa mensagens locais, incluindo missing_api_key do cliente; códigos desconhecidos recebem aviso genérico. Erros não são atribuídos ao modelo como autoria. W3.14 integra ativação automática e envelope HTTP."
+  - "run_investigation valida o escopo e executa validate_comparison antes de criar o cliente, registrando a chamada. Reutiliza recorder/evidência/prazo no loop, enviando precomputed_evidence como dados, sem fabricar histórico de chamadas do modelo. Repetição da comparação é rejeitada."
+  - "Sem chave, plano local escolhe análises disponíveis: solo por conjunto, contraste, NDVI, condição inicial, operação comum (CALAGEM primeiro) e população. Limite min(8, GEMINI_MAX_TOOL_CALLS) inclui comparabilidade. Não cria cliente ou faz rede."
+  - "Falhas de provedor/protocolo e segundo relatório inválido acionam fallback sobre as evidências já obtidas, preservando trace.repair. Falha imediata pode produzir relatório parcial só com comparabilidade. Erros de cálculo/chamada inválida interrompem, sem completar fatos pelo modelo ou fallback."
+  - "Prazo começa antes da comparabilidade; após expirar só formatação/validação local do fallback pode finalizar. Nenhuma ferramenta ou geração adicional é iniciada. Cálculos síncronos em andamento não são interrompidos."
+  - "Envelope inclui origem backend, evidências e projeção dos gráficos sem recálculo: NDVI opcional, resumos e contrastes de solo em listas. Avisos do pacote e das análises são acumulados, com aviso explícito quando há fallback."
+  - "POST /api/investigations retorna 200 para relatório válido; 404 para dataset ausente; 422 para requisição/par inválido; 503 para falha sem relatório válido. Erros de execução usam detail.code/message locais e não retornam stack trace, prompts ou entradas privadas."
+problemas_conhecidos:
+  - "A investigação real e o diagnóstico de conexão foram aprovados em 2026-10-17. Resultados de novas gerações podem variar; uma resposta inválida continua sujeita a reparo e fallback."
+  - "O ambiente restrito bloqueia o socket interno do asyncio/TestClient e a revisão automática da execução ampliada atingiu limite de uso nesta sessão. A validação HTTP da W3.14 foi concluída pelo usuário. Em 2026-10-17 a execução ampliada foi autorizada e a suíte completa com HTTP passou novamente; não há pendência de testes."
+  - "As regras de relatório são conservadoras e limitadas a formatos/vocabulário explícitos. Não provam suporte semântico de prosa arbitrária; podem rejeitar construções ambíguas e não cobrem todas as relações qualitativas/sinônimos. O prompt orienta frases simples."
+  - "A validação causal é lexical, com escopo local limitado; não é parser completo de português. Não cobre todos os sinônimos, metáforas, idiomas ou negações complexas. O cenário real da W3.15 foi inspecionado."
+  - "As primeiras respostas reais foram rejeitadas pelos validadores; os ajustes de prompt e referências verificadas permitiram concluir o cenário. O prazo local é 120 s; o padrão de 45 s pode expirar durante o reparo."
+  - "Prazo compartilhado é verificado entre etapas síncronas e limita timeout HTTP restante; não interrompe cálculos locais em andamento nem constitui cancelamento absoluto de processo."
+  - "Nove testes reais dependem de FARMLAB_REAL_DATA_DIR, não disponível neste ambiente."
+  - "Avisos de depreciação de Starlette/httpx, AnyIO e tipagem interna do SDK no Python 3.14."
+  - "Correções UTF-8 em test_analytics.py e test_real_baseline.py feitas na preparação do Windows permanecem no working tree."
+arquivos_importantes_alterados:
+  - "backend/app/harness/gemini_client.py"
+  - "backend/tests/test_gemini_client.py"
+  - "backend/app/api/gemini.py e backend/app/main.py"
+  - "backend/tests/test_gemini_api.py"
+  - "backend/app/harness/schemas.py, evidence_schema.py e backend/app/analytics/contracts.py"
+  - "backend/tests/test_harness_schemas.py"
+  - "backend/app/harness/prompts.py"
+  - "backend/tests/test_synthesis.py e backend/tests/test_health.py"
+  - "backend/app/harness/registry.py e backend/tests/test_gemini_tools.py"
+  - "backend/app/harness/validators.py e backend/tests/test_call_validators.py"
+  - "backend/app/harness/trace.py e backend/tests/test_investigation_trace.py"
+  - "backend/app/harness/orchestrator.py e backend/tests/test_orchestrator.py"
+  - "backend/tests/test_synthesis.py"
+  - "backend/app/harness/report_validation.py e backend/tests/test_report_validation.py"
+  - "backend/app/harness/language_validation.py e backend/tests/test_language_validation.py"
+  - "backend/tests/test_report_repair.py"
+  - "backend/app/harness/fallback.py e backend/tests/test_fallback.py"
+  - "backend/app/api/investigations.py, backend/tests/test_investigations.py e backend/tests/test_investigations_api.py"
+  - "backend/app/harness/smoke.py, backend/tests/test_gemini_smoke.py e .gitignore"
+  - "backend/pyproject.toml e backend/uv.lock"
+  - "README.md, PLANEJAMENTO_CODEX.md e HANDOFF.md"
+primeiro_passo_da_semana_seguinte: "W3.01–W3.15 concluídas. Para a pessoa responsável por W4: ler o contrato de POST /api/investigations e iniciar W4.01 quando solicitado. Nenhuma tarefa W4 foi implementada."
 ```
 
 ### Registro — Semana 4

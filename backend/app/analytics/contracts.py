@@ -6,12 +6,12 @@ from uuid import UUID
 from pydantic import Field, model_validator
 
 from app.data.contracts import StrictModel
-from app.harness.schemas import Evidence, FiniteValue, NonEmptyText
+from app.harness.evidence_schema import Evidence, FiniteValue, NonEmptyText
 
 
 class DatePeriod(StrictModel):
-    start: date
-    end: date
+    start: date = Field(description="Data inicial inclusiva no formato ISO YYYY-MM-DD.")
+    end: date = Field(description="Data final inclusiva no formato ISO YYYY-MM-DD, igual ou posterior ao início.")
 
     @model_validator(mode="after")
     def ordered(self):
@@ -29,25 +29,25 @@ SoilMetricName = Literal[
 
 
 class ComparisonArgs(StrictModel):
-    dataset_id: UUID
-    target_field_id: NonEmptyText
-    reference_field_id: NonEmptyText
-    period: Period = "full_season"
+    dataset_id: UUID = Field(description="UUID do dataset validado da sessão, fornecido pelo harness.")
+    target_field_id: NonEmptyText = Field(description="ID textual normalizado do talhão alvo selecionado; preservar na investigação.")
+    reference_field_id: NonEmptyText = Field(description="ID textual normalizado do talhão de referência selecionado; não inverter com o alvo.")
+    period: Period = Field(default="full_season", description="Período selecionado: full_season usa todos os dados disponíveis; start/end limita às datas inclusivas. Preservar a seleção do harness.")
 
 
 class ApplicationArgs(ComparisonArgs):
-    operation: NonEmptyText = "CALAGEM"
+    operation: NonEmptyText = Field(default="CALAGEM", description="Nome da operação disponível no dataset; CALAGEM é a operação padrão prioritária.")
 
 
 class SoilSummaryArgs(StrictModel):
-    dataset_id: UUID
-    measurement_group: Literal["group_1", "group_2"] = "group_1"
-    metrics: list[SoilMetricName] | None = Field(default=None, min_length=1)
+    dataset_id: UUID = Field(description="UUID do dataset validado da sessão; solo tem escopo geral, sem vínculo com talhão.")
+    measurement_group: Literal["group_1", "group_2"] = Field(default="group_1", description="group_1 é Conjunto 1 e group_2 é Conjunto 2; não representam profundidade ou data documentada.")
+    metrics: list[SoilMetricName] | None = Field(default=None, min_length=1, description="Variáveis permitidas a resumir. Omitir ou usar null para todas as disponíveis; lista vazia não é válida.")
 
 
 class SoilGroupsArgs(StrictModel):
-    dataset_id: UUID
-    metrics: list[SoilMetricName] | None = Field(default=None, min_length=1)
+    dataset_id: UUID = Field(description="UUID do dataset validado da sessão; solo tem escopo geral, sem vínculo com talhão.")
+    metrics: list[SoilMetricName] | None = Field(default=None, min_length=1, description="Variáveis permitidas para parear por amostra; delta é Conjunto 2 menos Conjunto 1. Omitir ou usar null para todas as disponíveis; lista vazia não é válida.")
 
 
 class FieldEvidence(Evidence):

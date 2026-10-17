@@ -1,7 +1,21 @@
-from fastapi.testclient import TestClient
+from functools import partial
 
+from fastapi.testclient import TestClient
+import pytest
+
+from app import config
 from app.config import get_settings
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def isolated_settings(monkeypatch):
+    # A developer's real .env must not change these configuration scenarios.
+    monkeypatch.setattr(config, "Settings", partial(config.Settings, _env_file=None))
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def test_health_returns_safe_configuration_without_key(monkeypatch) -> None:

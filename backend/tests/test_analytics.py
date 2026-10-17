@@ -219,7 +219,7 @@ def test_frontend_local_fixture_matches_typed_backend_results(analytical_dataset
     from pathlib import Path
     from app.analytics.contracts import (ComparisonEvidence, NdviEvidence, InitialEvidence,
         PopulationEvidence, ApplicationEvidence, SoilSummaryEvidence, SoilGroupsEvidence)
-    fixture = json.loads((Path(__file__).parents[2] / 'frontend/src/mocks/analytics-preview.json').read_text())
+    fixture = json.loads((Path(__file__).parents[2] / 'frontend/src/mocks/analytics-preview.json').read_text(encoding='utf-8'))
     models = dict(validation=ComparisonEvidence, ndvi=NdviEvidence, initial=InitialEvidence,
                   population=PopulationEvidence, application=ApplicationEvidence)
     for results in fixture['comparisons'].values():

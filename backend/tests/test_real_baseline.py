@@ -17,7 +17,7 @@ from app.harness.registry import TOOLS
 from app.main import app
 from tests.real_baseline_reference import audit_ndvi, audit_operations, number, read_rows, weighted
 
-BASELINE = json.loads((Path(__file__).parent / "fixtures/real_baseline.json").read_text())
+BASELINE = json.loads((Path(__file__).parent / "fixtures/real_baseline.json").read_text(encoding="utf-8"))
 TARGET, REFERENCE = "103144", "103145"
 
 

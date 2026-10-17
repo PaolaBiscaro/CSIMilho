@@ -21,6 +21,7 @@ dist/
 coverage/
 
 # Local data
+backend/.local/
 *.csv
 !backend/tests/fixtures/**/*.csv
 demo-data/*
