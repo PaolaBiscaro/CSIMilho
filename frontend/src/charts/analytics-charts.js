@@ -1,5 +1,5 @@
 import Chart from 'chart.js/auto'
-import { element, formatValue } from '../ui/dom.js'
+import { element, formatDate, formatValue } from '../ui/dom.js'
 
 export function chartColors() {
   const styles = getComputedStyle(document.documentElement)
@@ -32,7 +32,15 @@ export function ndviConfig(evidence, labels, colors) {
         { label: labels.reference, data: evidence.series.map((point) => point.reference_ndvi), borderColor: colors[2], backgroundColor: colors[2], borderDash: [6, 4], tension: 0, pointRadius: 4 },
       ],
     },
-    options: { ...options(evidence.unit), spanGaps: false },
+    options: {
+      ...options(evidence.unit), spanGaps: false,
+      scales: { ...options(evidence.unit).scales, x: { ticks: { callback(value) { return formatDate(this.getLabelForValue(value)) } } } },
+      plugins: { ...options(evidence.unit).plugins, tooltip: { callbacks: {
+        ...options(evidence.unit).plugins.tooltip.callbacks,
+        title: (items) => formatDate(evidence.series[items[0]?.dataIndex]?.date),
+        afterBody: (items) => `Gap alvo − referência: ${formatValue(evidence.series[items[0]?.dataIndex]?.gap)}`,
+      } } },
+    },
   }
 }
 
@@ -69,6 +77,7 @@ const fiveNumberSummary = {
 export function distributionConfig(metric, colors) {
   if (!metric?.valid_n) return null
   const values = [metric.min, metric.q1, metric.median, metric.q3, metric.max]
+  if (!values.every((value) => typeof value === 'number' && Number.isFinite(value))) return null
   return {
     type: 'scatter',
     plugins: [fiveNumberSummary],

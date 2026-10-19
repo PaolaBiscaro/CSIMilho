@@ -1,12 +1,17 @@
 """Synchronous investigation API; errors expose only local safe messages."""
 
+from uuid import UUID
+
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import HTMLResponse
 
 from app.config import get_settings
 from app.data.session_store import DatasetNotFoundError, dataset_store
 from app.harness.orchestrator import InvestigationError, run_investigation
 from app.harness.schemas import InvestigationRequest, InvestigationResponse
 from app.harness.validators import ToolCallValidationError
+from app.reports.html_report import CSP
+from app.reports.store import report_store
 
 
 router = APIRouter(prefix="/api/investigations", tags=["investigations"])
@@ -19,7 +24,9 @@ router = APIRouter(prefix="/api/investigations", tags=["investigations"])
 })
 def investigate(request: InvestigationRequest) -> InvestigationResponse:
     try:
-        return run_investigation(request, settings=get_settings(), store=dataset_store)
+        result = run_investigation(request, settings=get_settings(), store=dataset_store)
+        report_store.save(result)
+        return result
     except DatasetNotFoundError:
         raise HTTPException(status_code=404, detail={"code": "dataset_not_found", "message": "Dataset não encontrado na sessão."}) from None
     except ToolCallValidationError as error:
@@ -33,3 +40,19 @@ def investigate(request: InvestigationRequest) -> InvestigationResponse:
         raise HTTPException(status_code=503, detail={
             "code": "investigation_failed", "message": "Não foi possível produzir um relatório válido com as evidências disponíveis.",
         }) from None
+
+
+@router.get("/{investigation_id}/report", response_class=HTMLResponse, responses={
+    404: {"description": "Relatório não disponível na sessão."},
+})
+def download_report(investigation_id: UUID) -> HTMLResponse:
+    try:
+        document = report_store.get(investigation_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail={
+            "code": "report_not_found", "message": "Relatório não disponível nesta sessão. Execute uma nova investigação.",
+        }) from None
+    return HTMLResponse(document, headers={
+        "Content-Disposition": f'attachment; filename="farmlab-{investigation_id}.html"',
+        "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": CSP,
+    })

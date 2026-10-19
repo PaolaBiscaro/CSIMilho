@@ -22,8 +22,15 @@ export function formatValue(value) {
   return value === null || value === undefined ? 'Indisponível' : new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 4 }).format(value)
 }
 
+export function formatDate(value) {
+  return typeof value === 'string' ? value.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3/$2/$1') : 'Indisponível'
+}
+
 export function table(caption, headers, rows) {
   const wrap = element('div', 'accessible-table-wrap')
+  wrap.tabIndex = 0
+  wrap.setAttribute('role', 'region')
+  wrap.setAttribute('aria-label', `${caption}. Use as setas para rolar a tabela.`)
   const result = element('table', 'accessible-table')
   const head = element('thead')
   const heading = element('tr')

@@ -64,11 +64,35 @@ h2 {
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
-textarea:focus-visible {
+textarea:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
   outline: 3px solid var(--brown-800);
   outline-offset: 3px;
 }
 
 [hidden] {
   display: none !important;
+}
+
+/* Long filenames, source IDs and narrative remain readable at narrow widths. */
+p, li, dd, h1, h2, h3, label, button, .badge, .preview-notice { overflow-wrap: anywhere; }
+select, textarea, input { min-width: 0; max-width: 100%; }
+
+.skip-link {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 100;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--brown-900);
+  color: var(--paper);
+  transform: translateY(-200%);
+}
+.skip-link:focus { transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

@@ -591,142 +591,172 @@ As tentativas iniciais expuseram redação numérica/unidades inválidas e timeo
 
 ### W4.01 — Implementar estado de investigação no frontend `[P0]`
 
-- [ ] Adicionar estados READY, INVESTIGATING, COMPLETED e ERROR.
-- [ ] Impedir duas requisições simultâneas.
-- [ ] Preservar dataset ao iniciar nova comparação.
+- [x] Adicionar estados READY, INVESTIGATING, COMPLETED e ERROR.
+- [x] Impedir duas requisições simultâneas.
+- [x] Preservar dataset ao iniciar nova comparação.
 
 **Verificar:** cliques repetidos não disparam requisições duplicadas.
 
+**Entrega de 2026-10-17:** os estados já existiam em `frontend/src/state.js`; implementados armazenamento do resultado, `runInvestigation(execute)` e `startNewComparison()`. A operação é bloqueada antes de iniciar o callback; chamadas repetidas recebem a mesma Promise. Sucesso (incluindo fallback) chega a COMPLETED; falha síncrona/assíncrona chega a ERROR, preservando o pacote até o reinício explícito. Nova comparação limpa o resultado e volta a READY sem reenviar arquivos. Troca de dataset durante execução é rejeitada. Verificação: dez testes novos, incluindo eventos de clique em botão no DOM de teste (happy-dom), com execução controlada; **35 testes Vitest e build Vite aprovados**. Handoff W3 reproduzido antes da edição: **841 testes backend passaram, 9 privados ignorados, 3 avisos existentes**. Sem mudança visual ou chamada ao Gemini nesta tarefa. W4.02 é o próximo item: conectar esse controle ao botão real e à API.
+
 ### W4.02 — Integrar a execução ao botão principal `[P0]`
 
-- [ ] Montar payload com dataset, talhões, período e pergunta.
-- [ ] Chamar `/api/investigations`.
-- [ ] Mostrar progresso indeterminado e etapas textuais.
-- [ ] Tratar erros sem recarregar a página.
+- [x] Montar payload com dataset, talhões, período e pergunta.
+- [x] Chamar `/api/investigations`.
+- [x] Mostrar progresso indeterminado e etapas textuais.
+- [x] Tratar erros sem recarregar a página.
 
 **Verificar:** investigação fake conclui e navega para o resultado.
 
+**Entrega de 2026-10-17:** botão Executar investigação conectado ao POST JSON via `runInvestigation`, com recorte validado e pergunta de 10 a 500 caracteres. Controles e navegação ficam bloqueados durante a requisição; progresso indeterminado lista as etapas sem inventar percentuais ou etapa atual. Respostas inválidas e falhas HTTP/rede geram mensagem local e reinício explícito do pacote, sem reload. Sucesso abre confirmação identificando Gemini ou fallback; nova comparação preserva o dataset. Prévias demonstrativas ficam restritas ao fluxo sem upload. Verificação em happy-dom com API fake: navegação completa, cliques duplicados, bloqueios, erro e reutilização do pacote; **57 testes Vitest (22 novos nesta tarefa), build Vite e git diff --check aprovados**. Sem chamada ao Gemini ou mudança no backend. Relatório detalhado e visão de solo seguem na W4.03, próximo item.
+
 ### W4.03 — Criar a Visão geral do Gemini `[P0]`
 
-- [ ] Exibir título, resumo e força da evidência no topo.
-- [ ] Identificar quando o resultado veio do fallback.
-- [ ] Renderizar com `textContent`, nunca `innerHTML` externo.
-- [ ] Criar a área **Visão de solo** logo após o resumo, com métricas descritivas, Conjunto 1 × Conjunto 2 e aviso de escopo geral.
-- [ ] Tratar a visão de solo como seção prioritária do dashboard, com cards de qualidade e acesso às visualizações detalhadas.
-- [ ] Não apresentar amostras como pertencentes aos talhões selecionados.
+- [x] Exibir título, resumo e força da evidência no topo.
+- [x] Identificar quando o resultado veio do fallback.
+- [x] Renderizar com `textContent`, nunca `innerHTML` externo.
+- [x] Criar a área **Visão de solo** logo após o resumo, com métricas descritivas, Conjunto 1 × Conjunto 2 e aviso de escopo geral.
+- [x] Tratar a visão de solo como seção prioritária do dashboard, com cards de qualidade e acesso às visualizações detalhadas.
+- [x] Não apresentar amostras como pertencentes aos talhões selecionados.
 
 **Verificar:** caracteres especiais e texto malicioso aparecem como texto, não como HTML.
 
+**Entrega de 2026-10-17:** visão geral apresenta `headline`, `summary`, força traduzida e origem Gemini/fallback; o adaptador rejeita campos narrativos inválidos. Visão de solo imediatamente após o resumo, com escopo geral explícito, cards de amostras/completude/textura válida, seletor de métrica, mínimo/mediana/máximo e Conjunto 1 × Conjunto 2 com pares válidos e delta mediano. Detalhes expansíveis dão acesso às tabelas de estatísticas e valores pareados por amostra, com fontes e IDs. Cada chamada/filtro permanece separado; valores ausentes, conjuntos não executados e listas vazias têm estados explícitos. Nenhum cálculo analítico no frontend, associação a talhão ou classificação agronômica. Todo conteúdo externo usa `textContent`. Verificação: **71 Vitest passaram (14 novos), build Vite e git diff --check aprovados**, incluindo injeção HTML, origens/forças, resultados parciais, null versus zero, mudança de métrica e valores fornecidos pelo backend. Sem chamada externa ou alteração no backend. Gráficos Chart.js reais permanecem na W4.06; próximo item W4.04, achados e recomendações.
+
 ### W4.04 — Criar cards de achados e recomendações `[P0]`
 
-- [ ] Renderizar achados em ordem.
-- [ ] Mostrar evidências relacionadas.
-- [ ] Renderizar recomendações e justificativas.
+- [x] Renderizar achados em ordem.
+- [x] Mostrar evidências relacionadas.
+- [x] Renderizar recomendações e justificativas.
 
 **Verificar:** todo card aponta para ao menos um `evidence_id` existente.
 
+**Entrega de 2026-10-17:** `report-cards.js` apresenta achados e recomendações após a visão de solo, preservando a ordem recebida. Cada card mostra título/ação, explicação/justificativa e referências expansíveis com ID, método e fontes; solo mantém aviso de escopo geral. Listas vazias têm mensagens explícitas. O adaptador exige campos textuais válidos e ao menos uma referência existente por card; rejeita referências inexistentes, IDs de evidência duplicados e metadados necessários inválidos antes de COMPLETED, sem descartar cards silenciosamente. Todo texto externo usa `textContent`. **85 Vitest passaram (14 novos), build Vite e git diff --check aprovados**; testes cobrem ordem, integridade das referências, HTML malicioso, origens Gemini/fallback e fluxo integrado. Sem chamada ao Gemini, dependência ou alteração no backend. Próximo item W4.05: aba de evidências.
+
 ### W4.05 — Criar aba de evidências `[P0]`
 
-- [ ] Mostrar métrica, alvo, referência, diferença e unidade.
-- [ ] Mostrar quantidade de observações quando aplicável.
-- [ ] Mostrar arquivos fonte.
+- [x] Mostrar métrica, alvo, referência, diferença e unidade.
+- [x] Mostrar quantidade de observações quando aplicável.
+- [x] Mostrar arquivos fonte.
 
 **Verificar:** valores nulos aparecem como indisponíveis, nunca como zero.
 
+**Entrega de 2026-10-17:** resultado dividido em Visão geral e Evidências, com roles/associações ARIA, seleção por clique, setas, Home/End e preservação do painel anterior. `evidence.js` renderiza cada evidência na ordem recebida: métrica, alvo/referência identificados, diferença, unidade, contagens de observações/datas/linhas e fontes. Conformidade distingue percentuais de pontos percentuais. Solo usa tabelas próprias de estatísticas/conjuntos e pares por amostra, sem atribuir valores a talhões. Nulos/ausências aparecem como Indisponível, unidades desconhecidas são explícitas e zeros reais permanecem zero. Sem cálculos, mocks ou nova requisição ao trocar de aba; conteúdo externo com textContent. **93 Vitest passaram (oito novos), build Vite e git diff --check aprovados**. Testes cobrem valores recebidos, nulos/zeros, contagens, solo parcial, HTML malicioso, teclado e navegação integrada com API fake. Sem nova dependência, chamada ao Gemini ou mudança no backend. Próximo item W4.06: gráficos reais.
+
 ### W4.06 — Integrar os gráficos reais `[P0]`
 
-- [ ] Alimentar Chart.js com `chart_data` da resposta.
-- [ ] Formatar datas e valores.
-- [ ] Exibir estado vazio quando a ferramenta NDVI não foi executada.
-- [ ] Integrar distribuição, comparação pareada e composição de textura do solo aos contratos reais.
-- [ ] Exibir tooltip, unidade, amostras válidas, fonte e tabela acessível em cada visualização.
-- [ ] Manter mapa, tendência temporal e perfil de profundidade indisponíveis para solo enquanto faltarem os campos necessários.
+- [x] Alimentar Chart.js com `chart_data` da resposta.
+- [x] Formatar datas e valores.
+- [x] Exibir estado vazio quando a ferramenta NDVI não foi executada.
+- [x] Integrar distribuição, comparação pareada e composição de textura do solo aos contratos reais.
+- [x] Exibir tooltip, unidade, amostras válidas, fonte e tabela acessível em cada visualização.
+- [x] Manter mapa, tendência temporal e perfil de profundidade indisponíveis para solo enquanto faltarem os campos necessários.
 
 **Verificar:** cada gráfico usa exatamente os pontos e resumos presentes nas evidências correspondentes, sem cálculo analítico paralelo no frontend.
 
+**Entrega de 2026-10-17:** abas Solo e Gráfico NDVI integradas a `chart_data`, com atalho na visão de solo. NDVI preserva sequência/pontos/gaps e formata datas sem deslocamento de fuso; distribuição usa os cinco valores recebidos, comparação usa pares/deltas e textura usa percentuais já normalizados pelo backend. Seletores independentes de chamada, família e métrica preservam resultados parciais e filtros diferentes, sem completar chamadas ausentes com dados de outra evidência. Tooltips incluem unidade, contagem e fonte; cada gráfico possui tabela acessível. Mapa, tempo e profundidade de solo explicitamente indisponíveis. Adaptador confere identidade e conteúdo dos gráficos contra evidence, rejeitando divergências. Instâncias criadas após anexar o painel visível e destruídas ao trocar filtro/aba ou sair do resultado. **105 Vitest passaram (12 novos), build Vite e git diff --check aprovados**. Verificação em happy-dom com Chart.js substituído para inspecionar configurações/ciclo de vida, incluindo navegação com API fake; sem nova chamada ao Gemini, dependência ou alteração no backend. Próximo item W4.07: limitações e métodos.
+
 ### W4.07 — Criar abas de limitações e métodos `[P0]`
 
-- [ ] Mostrar limitações e regras associadas.
-- [ ] Mostrar ferramentas, fontes e duração.
-- [ ] Exibir modelo, horário e origem do relatório.
-- [ ] Ocultar detalhes internos sensíveis.
+- [x] Mostrar limitações e regras associadas.
+- [x] Mostrar ferramentas, fontes e duração.
+- [x] Exibir modelo, horário e origem do relatório.
+- [x] Ocultar detalhes internos sensíveis.
 
 **Verificar:** trace é legível sem mostrar prompts, chave ou dados brutos.
 
+**Entrega de 2026-10-17:** abas Métodos e Limitações completam a navegação do resultado. Limitações preservam título, explicação e regra na ordem recebida. Métodos exibem origem, modelo configurado, início em UTC, ferramentas em sequência, versão, estado, duração em ms, argumentos permitidos por ferramenta, fontes e métodos das evidências produzidas; reparo apresenta apenas estado/horário/duração. Fallback identificado como geração local, sem atribuição ao modelo configurado. Projeção explícita dos campos, sem serializar trace/arguments; prompts, chaves, dados brutos, campos desconhecidos e mensagens internas de erro/reparo não entram no DOM. Erros de ferramentas usam mensagens locais. Adaptador rejeita limitações ausentes/inválidas e metadados de execução malformados. **116 Vitest passaram (11 novos), build Vite e git diff --check aprovados**, incluindo sentinelas de privacidade, HTML malicioso, fuso, zero/ausência, argumentos, seis abas e fluxo com API fake. Sem chamada ao Gemini, dependência ou mudança no backend. Próximo item W4.08: relatório HTML.
+
 ### W4.08 — Implementar relatório HTML `[P1]`
 
-- [ ] Criar gerador server-side com conteúdo autocontido.
-- [ ] Escapar todos os textos.
-- [ ] Incluir visão geral, evidências, limitações, métodos e origem.
-- [ ] Criar endpoint de download.
+- [x] Criar gerador server-side com conteúdo autocontido.
+- [x] Escapar todos os textos.
+- [x] Incluir visão geral, evidências, limitações, métodos e origem.
+- [x] Criar endpoint de download.
 
 **Verificar:** arquivo baixa, abre offline e não executa conteúdo vindo do Gemini.
 
+**Entrega de 2026-10-17:** HTML UTF-8 gerado no backend ao concluir a investigação, com estilo embutido, tabelas de evidências/solo/NDVI, referências internas, achados, recomendações, limitações, métodos, origem, modelo configurado e horário UTC. Todos os textos externos escapados; sem scripts, imagens, fontes ou recursos externos, com CSP também no arquivo. Projeção explícita dos métodos omite prompts, chaves e erros internos. GET `/api/investigations/{investigation_id}/report` entrega o mesmo HTML em downloads repetidos, sem refazer cálculos ou chamar o Gemini. Armazenamento limitado aos 32 últimos relatórios por processo, apenas em memória; reinício/expulsão retorna 404 orientando nova investigação. Botão de download trata progresso, falha/repetição e cancelamento ao sair da tela, preservando o resultado. Verificação automatizada cobre POST→GET, arquivo gravado/lido offline, ausência de recursos externos, HTML malicioso e privacidade; download no DOM de teste cobre Blob/URL/nome/limpeza e falhas. Sem nova dependência ou chamada real ao Gemini. Próximo item: W4.09.
+
 ### W4.09 — Servir o build do frontend pelo FastAPI `[P0]`
 
-- [ ] Configurar build do Vite.
-- [ ] Servir assets e fallback do `index.html` no FastAPI.
-- [ ] Manter proxy separado apenas para desenvolvimento.
+- [x] Configurar build do Vite.
+- [x] Servir assets e fallback do `index.html` no FastAPI.
+- [x] Manter proxy separado apenas para desenvolvimento.
 
 **Verificar:** apresentação funciona em uma única URL local após o build.
 
+**Entrega de 2026-10-17:** build Vite explícito em `frontend/dist`, com base `/` e assets próprios. FastAPI serve essa pasta por caminho absoluto independente do diretório de execução, com fallback do `index.html` para navegação. APIs/documentação preservam respostas e métodos; assets ausentes retornam 404, sem HTML substituto. Caminhos ocultos/traversal são bloqueados e a pasta servida fica restrita ao build. Sem build, a API continua disponível e a página orienta executar `pnpm build`; compilação posterior passa a funcionar sem reiniciar. HTML usa revalidação de cache. O bundle usa a própria origem para `/api`; proxy e override de URL ficam restritos ao desenvolvimento. Apresentação local mantém `APP_ENV=development`, pois a comparação usa diagnóstico restrito a esse ambiente. **872 testes backend passaram, 9 privados ignorados, 3 avisos existentes (45,78 s); 128 Vitest, build Vite e git diff --check aprovados**. Inclui 22 novos casos backend e dois frontend, com fluxo HTTP de upload→comparação→investigação fallback→download pela mesma origem e assets do build real. Tela inicial e assets conferidos no navegador em FastAPI temporário, sem Vite e sem chamada ao Gemini. Próximo item: W4.10.
+
 ### W4.10 — Revisar responsividade e acessibilidade `[P1]`
 
-- [ ] Verificar navegação por teclado.
-- [ ] Adicionar labels, foco visível e regiões de status.
-- [ ] Conferir contraste e leitura em tela projetada.
-- [ ] Ajustar telas de 390 px, 820 px e desktop.
+- [x] Verificar navegação por teclado.
+- [x] Adicionar labels, foco visível e regiões de status.
+- [x] Conferir contraste e leitura em tela projetada.
+- [x] Ajustar telas de 390 px, 820 px e desktop.
 
 **Verificar:** fluxo principal pode ser realizado sem mouse e sem texto cortado.
 
+**Entrega de 2026-10-18:** link para pular ao conteúdo, foco no título ao navegar e no resultado/erro após upload. Progresso recebe foco fora do formulário ocupado, sem bloquear sua região de status. Upload e pergunta têm nomes e instruções associados; erros usam alert e pergunta inválida usa aria-invalid. Critérios mostram explicações sem depender de hover. Tabelas são regiões nomeadas e focáveis, com rolagem por setas; abas se distribuem em linhas no celular. Campos, textos auxiliares, quebra de textos longos e foco foram ajustados; preferência por movimento reduzido respeitada. Verificação em navegador com fixtures sintéticas: upload→comparação→investigação fallback→abas→download→nova comparação por teclado, foco preservado e rolagem de tabela confirmada. As seis abas foram inspecionadas em **390, 820 e 1440 px**, sem estouro horizontal do documento ou textos cortados nas regiões verificadas; tabelas largas mantêm rolagem interna. Contrastes calculados: texto principal 15,63:1, secundário 6,20:1, botão 6,42:1, estados semânticos acima de 5,4:1, borda de campos 3,30:1 e foco 8,90:1. Leitura avaliada em viewport desktop; sem teste em projetor físico ou leitor de tela dedicado. **132 Vitest passaram (quatro novos e testes de fluxo ampliados), build Vite, 22 testes HTTP do build e git diff --check aprovados**; três avisos backend já existentes. Sem mudança no backend, dependência nova ou chamada real ao Gemini. Evidência visual local: `backend/.local/w4-10/mobile-focus.png`. Próximo item W4.11.
+
 ### W4.11 — Implementar painel de pré-apresentação `[P1]`
 
-- [ ] Mostrar backend conectado.
-- [ ] Mostrar Gemini configurado.
-- [ ] Adicionar botão **Testar Gemini**.
-- [ ] Exibir latência e mensagem de erro compreensível.
+- [x] Mostrar backend conectado.
+- [x] Mostrar Gemini configurado.
+- [x] Adicionar botão **Testar Gemini**.
+- [x] Exibir latência e mensagem de erro compreensível.
 
 **Verificar:** teste pode ser executado antes da banca sem iniciar investigação.
 
+**Entrega de 2026-10-18:** painel **Antes de apresentar** na tela Dados, disponível antes do upload. Ao abrir ou atualizar, consulta somente `/api/health`: backend, configuração do Gemini, modelo e versão. Configuração detectada não é apresentada como conexão confirmada. O botão **Testar Gemini** chama explicitamente `POST /api/gemini/test`, sem enviar pacote, pergunta ou alterar o estado da investigação. Exibe latência do backend (inclusive zero), confirmação ou mensagens locais para falhas de chave, permissão, limite, timeout, rede e resposta inválida. Sem chave, orienta configurar no backend e atualizar. Bloqueia cliques duplicados, cancela ao sair e ignora respostas atrasadas; foco vai ao resultado das ações manuais. Respostas têm validação e projeção de campos públicos, sem exibir mensagens internas. **159 Vitest passaram (27 novos), build Vite, 53 testes backend de health/Gemini/build (2,27 s, três avisos existentes) e git diff --check aprovados**. Navegador via FastAPI sem chave no processo de teste: status correto, atualização por teclado e layout em 390/820/1440 px sem estouro horizontal. Sucesso e falhas do provedor simulados nos testes, sem chamada real ao Gemini, alteração de `.env`, dependência nova ou mudança backend. Capturas em `backend/.local/w4-11/`. Próximo item: W4.12.
+
 ### W4.12 — Testar falhas reais `[P0]`
 
-- [ ] Rodar sem chave.
-- [ ] Simular timeout.
-- [ ] Simular rate limit.
-- [ ] Simular saída inválida.
-- [ ] Confirmar fallback e avisos.
+- [x] Rodar sem chave.
+- [x] Simular timeout.
+- [x] Simular rate limit.
+- [x] Simular saída inválida.
+- [x] Confirmar fallback e avisos.
 
 **Verificar:** nenhuma dessas falhas derruba a aplicação.
 
+**Entrega de 2026-10-18:** oito cenários integrados com rotas HTTP, SDK oficial e transporte em memória: sem chave; timeout no planejamento e na síntese; 429 no planejamento e na síntese; JSON inválido; schema inválido; resposta vazia. Cada caso verifica health sem chamada ao provedor, erro compreensível no teste de conexão, upload de fixtures sintéticas, comparação, investigação concluída via fallback com motivo visível, download HTML e outra investigação no mesmo dataset. Confirma uma única repetição em 429, no máximo um reparo do relatório, fechamento do cliente, preservação das evidências já calculadas e ausência de detalhes internos/credenciais nas respostas e no HTML. Falhas de síntese mantêm NDVI sem recalcular; falhas no início usam apenas as evidências já disponíveis. Cinco casos frontend verificam aviso, saída do progresso, navegação/download habilitados e nova investigação após fallback sem reenviar o pacote. **880 testes backend passaram, 9 privados ignorados e 3 avisos existentes (45,29 s); 164 Vitest, build Vite e git diff --check aprovados**. Sem chamadas reais ao Gemini, alteração de `.env`, dependências ou mudança no código de produção. Próximo item: W4.13.
+
 ### W4.13 — Executar teste ponta a ponta `[P0]`
 
-- [ ] iniciar a aplicação do zero;
-- [ ] importar os sete arquivos;
-- [ ] executar Grão 4.0 × Grão Convencional;
-- [ ] conferir visão geral, visão de solo, evidências, gráfico e limitações;
-- [ ] baixar relatório;
-- [ ] executar nova comparação sem reenviar arquivos.
+- [x] iniciar a aplicação do zero;
+- [x] importar os sete arquivos;
+- [x] executar Grão 4.0 × Grão Convencional;
+- [x] conferir visão geral, visão de solo, evidências, gráfico e limitações;
+- [x] baixar relatório;
+- [x] executar nova comparação sem reenviar arquivos.
 
 **Verificar:** todo o fluxo conclui sem console error ou stack trace visível.
 
+**Entrega de 2026-10-18:** build recompilado e FastAPI iniciado em processo novo, sem Vite, em `127.0.0.1:8765`. Fluxo real pelo navegador com os sete CSVs sintéticos de `backend/tests/fixtures/manual/`; nenhum pacote privado enviado. Health conectado e teste real do Gemini aprovado (1.472 ms). Um único upload, HTTP 201, qualidade 85/100, quatro talhões, duas amostras de solo, zero erros e três avisos previstos. Primeira investigação Grão 4.0 × Grão Convencional concluída pelo Gemini (`gemini-2.5-flash`), com oito chamadas analíticas e sem reparo/fallback. Conferidas as seis abas, seletor de solo, gráfico/tabela NDVI (0,5 × 0,5, gap zero), fontes e limitações. Primeiro HTML baixado: 39.316 bytes, 19 tabelas. Nova comparação com talhões invertidos executada na mesma sessão sem reenviar arquivos; o relatório gerado falhou na validação das evidências após um reparo e o fallback local concluiu corretamente, com motivo visível e sete chamadas preservadas. Segundo HTML baixado: 36.443 bytes, 17 tabelas. Nova comparação voltou a ficar habilitada. **Zero erros ou avisos de console, nenhum stack trace visível; upload, duas investigações e dois downloads com sucesso HTTP.** Ambos os HTMLs foram lidos e analisados sem execução, sem scripts ou recursos externos; visualização offline não realizada porque o navegador integrado bloqueia URLs `file:`. Evidências locais, relatórios, hashes e console em `backend/.local/w4-13/`; servidor e aba temporários encerrados. Build e git diff --check aprovados; sem alteração de código de produção ou dependências. Regressão automatizada mais recente permanece a W4.12 (880 backend, 9 ignorados, 3 avisos; 164 frontend), sem nova execução integral nesta etapa. Próximo item: W4.14.
+
 ### W4.14 — Preparar o roteiro da demonstração `[P0]`
 
-- [ ] Escrever sequência de cliques e fala principal.
-- [ ] Definir pacote exato e pasta de fácil acesso.
-- [ ] Medir tempo do fluxo.
-- [ ] Ensaiar resultado Gemini e fallback.
+- [x] Escrever sequência de cliques e fala principal.
+- [x] Definir pacote exato e pasta de fácil acesso.
+- [x] Medir tempo do fluxo.
+- [x] Ensaiar resultado Gemini e fallback.
 
 **Meta:** concluir a parte interativa em até dois minutos após selecionar os arquivos.
 
+**Entrega de 2026-10-18:** roteiro em [ROTEIRO_DEMONSTRACAO.md](ROTEIRO_DEMONSTRACAO.md), com preparação, pergunta, cliques, orçamento de tempo e falas distintas para Gemini/fallback. Pacote definido: sete fixtures sintéticas copiadas sem alteração para `demo-data/apresentacao-sintetica/` (2.851 bytes), hashes registrados localmente; o pacote privado não está disponível nesta cópia. Relatórios de reserva do ensaio em `demo-data/relatorios-reserva/`, identificados como resultados salvos e sintéticos. Três percursos cronometrados no navegador, da seleção concluída até download e Nova comparação: **Gemini com limite 75 s: 60,4 s (resultado em 36,1 s); fallback sem chave: 42,6 s (resultado em 1,1 s); Gemini com limite 45 s: 59,7 s com fallback por timeout (resultado em 45,0 s)**. Todos passaram pelas seis abas, baixaram HTML, reutilizaram a sessão e terminaram sem erros/avisos de console capturados. São tempos operacionais automatizados, sem fala humana cronometrada; a meta foi observada nos ensaios, não garantida para toda chamada. Limite de 75 s sugerido somente no processo de apresentação; `.env` intacto. Pacote copiado aprovado pelo check-only, arquivos locais ignorados pelo Git e git diff --check aprovado. Navegador integrado não abre HTML offline via file:; roteiro pede conferir manualmente as reservas antes da banca. Servidores/abas temporários encerrados. Sem alteração de produção ou dependências. Próximo item: W4.15.
+
 ### W4.15 — Congelar a versão da apresentação `[P0]`
 
-- [ ] Executar todos os testes.
-- [ ] Registrar versões de Python, Node e dependências.
-- [ ] Confirmar `.env` e dados fora do Git.
-- [ ] Criar tag ou commit identificável.
-- [ ] Não adicionar funcionalidades depois do congelamento sem necessidade crítica.
+- [x] Executar todos os testes.
+- [x] Registrar versões de Python, Node e dependências.
+- [x] Confirmar `.env` e dados fora do Git.
+- [x] Criar tag ou commit identificável.
+- [x] Não adicionar funcionalidades depois do congelamento sem necessidade crítica.
 
 **Saída:** versão pronta para a banca.
+
+**Entrega de 2026-10-18:** W4.01–W4.15 consolidadas na branch `feat/lorena`, identificadas pela tag local `apresentacao-w4-2026-10-18`, sem push. [CONGELAMENTO_APRESENTACAO.md](CONGELAMENTO_APRESENTACAO.md) registra a entrega e a regra de não adicionar funcionalidades/atualizar dependências sem necessidade crítica; [VERSAO_APRESENTACAO.json](VERSAO_APRESENTACAO.json) registra Python 3.14.7, Node 24.19.0, pnpm 11.25.0, uv 0.12.10, versões instaladas e hashes dos lockfiles/build. **880 testes backend passaram, 9 privados ignorados e 3 avisos existentes (47,48 s); 164 frontend, build Vite, compatibilidade de 49 pacotes Python e git diff --check aprovados.** Versões Python e diretas frontend conferidas contra os lockfiles. `.env`, dados locais, relatórios e capturas permanecem ignorados; apenas fixtures sintéticas versionadas. Sem alteração de produção ou dependências nesta etapa e sem chamada real ao Gemini na regressão final. Limitações: pacote privado indisponível, fala humana ainda não cronometrada e abertura visual offline das reservas a conferir manualmente. W4 encerrada; publicação remota não executada.
 
 ## 7. Corte de escopo se o prazo apertar
 
@@ -827,3 +857,18 @@ Adicionar uma linha por tarefa concluída.
 | 2026-10-16 | W3.14 | Endpoint síncrono e envelope completo; comparabilidade antes do provedor, plano local sem chave, fallback automático, gráficos/avisos/trace preservados e erros controlados. | 745 testes passaram inicialmente no ambiente restrito. Suíte completa executada pelo usuário e saída conferida: 827 passaram, 9 reais ignorados e 3 avisos existentes em 50,61 s, incluindo 41 novos testes de fluxo/rota direta/SDK/OpenAPI e 24 HTTP. git diff --check aprovado. | Pendência HTTP resolvida pela execução local informada pelo usuário. W3.14 concluída, sem chamada ao Gemini real ou nova dependência. Próximo item W3.15; não iniciado. |
 | 2026-10-16 | W3.15 (preparação) | Comando opt-in app.harness.smoke com sete fixtures pequenas, checagem sem provedor, investigação limitada, validação do cenário e artefato local ignorado pelo Git. Pacote escolhido pelo Codex a pedido do usuário. | 14 testes novos; 100 focados passaram. Regressão sem módulos HTTP: 759 passaram, 9 reais ignorados, 3 avisos existentes em 39,39 s. Check-only aprovou os sete arquivos, sem chave configurada. | Preparação entregue; usuário configurará a chave e testará depois. Sem chamada real, ajuste de prompt ou mudança de cálculos. Gate W3.15 permanece pendente; W4 não iniciada. |
 | 2026-10-17 | W3.15 | Chave local configurada; teste real com Gemini aprovado e relatório/trace inspecionados. Prompt e contexto reference_findings ajustados para preservar números/unidades e limitações; prazo local 120 s. Nenhuma fórmula ou regra de validação alterada. | Investigação c616c852-424a-45cb-91e6-769a46f56717: passed=true, oito ferramentas com sucesso, sem reparo/fallback. Conexão mínima: sucesso em 872 ms. Suíte completa: 841 passaram, 9 ignorados, 3 avisos em 41,40 s. Após último ajuste textual: 100 focados passaram. | W3.01–W3.15 concluídas; W4 não iniciada. Chave e artefatos locais ignorados pelo Git. Fallback segue disponível para futuras gerações inválidas. |
+| 2026-10-17 | W4.01 | Ciclo de investigação no store: resultado, exclusão de operações simultâneas com Promise compartilhada, falha controlada e nova comparação preservando dataset. Mantida branch pessoal feat/lorena a partir de 20b0e6f. | Base W3: 841 backend passaram, 9 ignorados, 3 avisos existentes. Após edição: 35 Vitest passaram (dez novos), build Vite e git diff --check aprovados. | Sem alteração visual ou chamada ao Gemini; botão/API e progresso ficam para W4.02. Uma tarefa por vez conforme planejamento. |
+| 2026-10-17 | W4.02 | Botão conectado ao POST de investigação, payload validado, bloqueio de controles/navegação, progresso indeterminado e erros sem reload. Confirmação identifica Gemini/fallback; nova comparação preserva o dataset e mocks ficam no fluxo sem upload. | 57 Vitest passaram (22 novos), build Vite e git diff --check aprovados. Fluxo da interface exercitado em happy-dom com API fake, incluindo sucesso, fallback, requisição única e reinício após erro. | Sem chamada ao Gemini ou alteração no backend. Tela atual confirma a conclusão; resumo e visão de solo pertencem à W4.03, próximo item. |
+| 2026-10-17 | W4.03 | Visão geral com título, resumo, força e origem; solo prioritário com qualidade, estatísticas, comparação de conjuntos e detalhes tabulares acessíveis. Valores e filtros preservados por evidência, sem cálculos ou vínculo com talhões. | 71 Vitest passaram (14 novos), build Vite e git diff --check aprovados. HTML malicioso permanece texto; cobertos resultados ausentes/parciais, múltiplos filtros, valores nulos e seleção de métrica. | Sem chamada ao Gemini, dependência nova ou mudança no backend. Detalhes atuais são tabelas; gráficos reais seguem na W4.06. Próximo item W4.04. |
+| 2026-10-17 | W4.04 | Cards de achados e recomendações na ordem do relatório, com justificativas e evidências expansíveis. Adaptador rejeita cards sem referência existente e IDs ambíguos; listas vazias explícitas e texto externo seguro. | 85 Vitest passaram (14 novos), build Vite e git diff --check aprovados. Verificados todos os vínculos dos cards, ordem, origens, conteúdo malicioso e navegação com API fake. | Sem chamada ao Gemini, dependência nova ou mudança no backend. Próximo item W4.05, aba de evidências. |
+| 2026-10-17 | W4.05 | Aba de evidências com valores, unidades, contagens, fontes e tabelas próprias para solo. Navegação acessível preserva a visão geral; nulos explícitos, zeros reais e diferenças recebidas sem recálculo. | 93 Vitest passaram (oito novos), build Vite e git diff --check aprovados. Verificados dados escalares/solo, ausências, conteúdo malicioso, teclado e navegação após API fake. | Sem chamada ao Gemini, dependência nova ou mudança no backend. Próximo item W4.06, gráficos reais. |
+| 2026-10-17 | W4.06 | Chart.js conectado a chart_data em abas Solo/NDVI; chamadas filtradas selecionáveis, valores preservados, tabelas/contagens/fontes, tooltips e estados vazios. Consistência com evidence conferida antes da exibição. | 105 Vitest passaram (12 novos), build Vite e git diff --check aprovados. Configurações e descarte de instâncias conferidos com Chart.js substituído em happy-dom; fluxo com API fake aprovado. | Sem chamada ao Gemini, dependência nova ou mudança no backend. Sem inferência de mapa, tempo, profundidade ou vínculo de solo com talhões. Próximo item W4.07. |
+| 2026-10-17 | W4.07 | Abas de limitações e métodos com regras, execução, argumentos permitidos, fontes, duração, modelo configurado, horário UTC e origem. Campos internos omitidos por projeção explícita e falhas traduzidas localmente. | 116 Vitest passaram (11 novos), build Vite e git diff --check aprovados. Testes de privacidade/HTML, fuso, argumentos, fallback e seis abas com API fake. | Sem chamada ao Gemini, dependência nova ou mudança no backend. Próximo item W4.08, relatório HTML. |
+| 2026-10-17 | W4.08 | Gerador HTML autocontido com escaping, CSP, tabelas e métodos permitidos; endpoint de download e botão com repetição/cancelamento. Até 32 relatórios em memória, sem regenerar na leitura. | 850 backend passaram, 9 privados ignorados, 3 avisos existentes (46,10 s); 126 Vitest, build Vite e git diff --check aprovados. Nove novos casos backend e dez frontend. Offline conferido por arquivo/parser, download por API/happy-dom; sem inspeção visual manual. | Sem dependência nova ou chamada real ao Gemini. Arquivo baixado funciona sem servidor; relatórios em memória expiram por reinício/limite. Próximo item W4.09. |
+| 2026-10-17 | W4.09 | Build servido pelo FastAPI em uma origem, fallback de navegação, isolamento de API/assets, mensagem sem build e API do bundle relativa à origem. Proxy apenas no desenvolvimento. | 872 backend passaram, 9 privados ignorados, 3 avisos (45,78 s); 128 Vitest, build e git diff --check aprovados. Fluxo HTTP completo com fallback e assets reais; tela inicial inspecionada no navegador via FastAPI. | Manter APP_ENV=development para comparação local. Sem nova dependência ou chamada real ao Gemini. Próximo item W4.10. |
+| 2026-10-18 | W4.10 | Foco de navegação/upload/progresso, skip link, tabelas por teclado, instruções e alertas, critérios visíveis, contraste de campos e layout adaptável. | 132 Vitest, build e 22 testes HTTP do build aprovados; três avisos existentes. Fluxo por teclado até download/nova comparação e seis abas em 390/820/1440 px. Contrastes calculados e git diff --check aprovado. | Sem chamada real ao Gemini ou mudança backend. Leitura avaliada no navegador, sem projetor físico/leitor de tela dedicado. Próximo item W4.11. |
+| 2026-10-18 | W4.11 | Painel antes do upload com health, configuração/modelo/versão, teste explícito do Gemini, latência e erros locais. Cancelamento, bloqueio de duplicatas e foco no status; estado da investigação preservado. | 159 Vitest, build e 53 testes backend de health/Gemini/build aprovados; três avisos existentes. Navegador sem chave em 390/820/1440 px, atualização por teclado; git diff --check aprovado. | Provedor simulado nos testes; sem chamada real, mudança backend ou dependência nova. Próximo item W4.12. |
+| 2026-10-18 | W4.12 | Oito cenários HTTP/SDK: ausência de chave, timeout/429 no planejamento e síntese, JSON/schema inválido e resposta vazia. Fallback, avisos, download e sessão reutilizável; cinco cenários frontend de continuidade. | 880 backend passaram, 9 privados ignorados, 3 avisos (45,29 s); 164 Vitest, build e git diff --check aprovados. | Transporte do provedor simulado, sem API real ou mudança de produção. Próximo item W4.13. |
+| 2026-10-18 | W4.13 | Fluxo real desde FastAPI novo: sete fixtures, comparação Grão, seis abas, download e segunda investigação com par invertido sem novo upload. | Primeira: Gemini, oito chamadas, sem reparo/fallback. Segunda: fallback após um reparo por validação de evidências, sete chamadas preservadas. Dois downloads, zero erros/avisos de console; HTMLs analisados, build e diff check aprovados. | Sem pacote privado ou mudança de produção. Visualização offline bloqueada por file: no navegador integrado. Evidências em backend/.local/w4-13/. Próximo item W4.14. |
+| 2026-10-18 | W4.14 | Roteiro com cliques/falas, pergunta, comandos e contingência; sete CSVs sintéticos em demo-data/apresentacao-sintetica e dois HTMLs de reserva locais. | Gemini 60,4 s; fallback sem chave 42,6 s; fallback por timeout 59,7 s. Percursos com seis abas, download e nova comparação; sem erros/avisos de console capturados. Check-only, hashes e diff check aprovados. | Tempos operacionais automatizados, sem fala humana; meta observada nos ensaios. .env intacto. Próximo item W4.15. |
+| 2026-10-18 | W4.15 | Congelamento local W4.01–W4.15 na tag apresentacao-w4-2026-10-18; registro de versões/hashes e regra de manutenção somente crítica. | 880 backend passaram, 9 privados ignorados, 3 avisos (47,48 s); 164 frontend, build, 49 pacotes compatíveis, lockfiles e diff check aprovados. Dados/segredos locais fora do Git. | Sem push, sem atualização de dependências ou mudança de produção. W4 encerrada. |

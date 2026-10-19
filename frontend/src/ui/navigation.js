@@ -4,13 +4,14 @@ export const NAV_ITEMS = Object.freeze([
   { id: 'investigation', label: 'Investigação' },
 ])
 
-export function createNavigation(currentPage = 'data', onNavigate = () => {}) {
+export function createNavigation(currentPage = 'data', onNavigate = () => {}, { busy = false } = {}) {
   const header = document.createElement('header')
   header.className = 'app-header'
 
   const brand = document.createElement('button')
   brand.className = 'brand'
   brand.type = 'button'
+  brand.disabled = busy
   brand.setAttribute('aria-label', 'FarmLab Investigator — abrir Dados')
   brand.addEventListener('click', () => onNavigate('data'))
 
@@ -37,6 +38,7 @@ export function createNavigation(currentPage = 'data', onNavigate = () => {}) {
     const isCurrent = item.id === currentPage
     button.className = `nav-pill${isCurrent ? ' nav-pill--active' : ''}`
     button.type = 'button'
+    button.disabled = busy
     button.textContent = item.label
     button.dataset.page = item.id
     if (isCurrent) button.setAttribute('aria-current', 'page')

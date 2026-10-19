@@ -758,20 +758,96 @@ primeiro_passo_da_semana_seguinte: "W3.01–W3.15 concluídas. Para a pessoa res
 ### Registro — Semana 4
 
 ```yaml
-responsavel:
-branch:
-commit_entregue:
-data:
-status: nao_iniciada
-tarefas_concluidas: []
+responsavel: Codex
+branch: feat/lorena
+commit_entregue: "Tag local apresentacao-w4-2026-10-18: commit de congelamento W4.01–W4.15 sobre 20b0e6f, na branch feat/lorena. Sem push."
+data: 2026-10-18
+status: concluido
+tarefas_concluidas: [W4.01, W4.02, W4.03, W4.04, W4.05, W4.06, W4.07, W4.08, W4.09, W4.10, W4.11, W4.12, W4.13, W4.14, W4.15]
 tarefas_pendentes: []
-comandos_para_executar: []
-testes_executados: []
-resultado_dos_testes:
-decisoes_tomadas: []
-problemas_conhecidos: []
-arquivos_importantes_alterados: []
-versao_da_apresentacao:
+comandos_para_executar:
+  - "cd frontend; pnpm dev"
+  - "cd backend; .venv/Scripts/python.exe -m uvicorn app.main:app --reload"
+  - "Apresentação: cd frontend; pnpm build; cd ../backend; definir APP_ENV=development; .venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000; abrir http://127.0.0.1:8000/."
+testes_executados:
+  - "cd frontend; pnpm test"
+  - "cd frontend; pnpm build"
+  - "Em backend: .venv/Scripts/python.exe -m pytest --basetemp=.local/pytest-w4-baseline-NOVO-ID --tb=short (pasta temporária exclusiva e execução ampliada autorizada para sockets HTTP)."
+  - "Em backend: .venv/Scripts/python.exe -m pytest --basetemp=.local/pytest-w4-08-full-20261017-a --tb=short (execução ampliada para sockets HTTP)."
+  - "Em backend, após pnpm build: .venv/Scripts/python.exe -m pytest --basetemp=.local/pytest-w4-09-full-a --tb=short (execução ampliada para sockets HTTP)."
+  - "W4.10 em backend: .venv/Scripts/python.exe -m pytest tests/test_frontend.py --basetemp=.local/pytest-w4-10-build-a --tb=short (execução ampliada para sockets HTTP)."
+  - "W4.11 em backend: .venv/Scripts/python.exe -m pytest tests/test_health.py tests/test_gemini_api.py tests/test_frontend.py --basetemp=.local/pytest-w4-11-focused-a --tb=short (execução ampliada para sockets HTTP)."
+  - "W4.12 em backend: .venv/Scripts/python.exe -m pytest tests/test_presentation_failures.py --basetemp=.local/pytest-w4-12-failures-a --tb=short; depois suíte completa com --basetemp=.local/pytest-w4-12-full-a (execução ampliada para sockets HTTP)."
+  - "W4.15 em backend: .venv/Scripts/python.exe -m pytest --basetemp=.local/pytest-w4-15-freeze-a --tb=short; uv --cache-dir .local/uv-freeze-cache pip check --python .venv/Scripts/python.exe."
+  - "git diff --check"
+resultado_dos_testes: "W4.15: 880 backend passaram, 9 privados ignorados, 3 avisos existentes (47,48 s); 164 Vitest e build Vite aprovados. 49 pacotes Python compatíveis e presentes nas versões do uv.lock; dependências diretas frontend conferidas contra pnpm-lock.yaml. Inventário e SHA-256 em VERSAO_APRESENTACAO.json. Diff check e conferência de arquivos locais/credenciais aprovados. Sem nova chamada real na regressão. Ensaios reais anteriores: W4.14 Gemini 60,4 s, fallback local 42,6 s, fallback timeout 59,7 s, sem fala humana; W4.13 validou fluxo completo, seis abas, dois downloads e reutilização da sessão."
+decisoes_tomadas:
+  - "W4.15 congela a entrega na tag local apresentacao-w4-2026-10-18. Não adicionar funcionalidades nem atualizar dependências sem necessidade crítica; correção exige nova validação/identificação, sem mover a tag existente. Nenhum push executado."
+  - "Ambiente: Python 3.14.7, Node 24.19.0, pnpm 11.25.0, uv 0.12.10. Registro em CONGELAMENTO_APRESENTACAO.md e inventário em VERSAO_APRESENTACAO.json. .env, demo-data local, relatórios e capturas continuam ignorados; apenas fixtures artificiais no Git."
+  - "W4.14 entrega ROTEIRO_DEMONSTRACAO.md: cliques, pergunta, fala, tempo alvo, comandos de preparação e contingência. Pacote definido é sintético, em demo-data/apresentacao-sintetica (sete arquivos, 2.851 bytes); origem backend/tests/fixtures/manual, hashes em backend/.local/w4-14/package-manifest.json."
+  - "Reservas baixadas: demo-data/relatorios-reserva/gemini-sintetico.html e fallback-sintetico.html. Não apresentar como execução ao vivo. Conferência visual offline deve ser manual, pois o navegador integrado bloqueia file:. Pacote privado não está disponível nesta cópia."
+  - "Timeout 75 s sugerido somente no processo de apresentação, sem mudar .env. Ensaio 45 s produziu fallback por timeout. Sem chave, fallback imediato. Os três ensaios operacionais ficaram abaixo de dois minutos, mas não incluem fala humana nem garantem latência futura. Servidores e abas de ensaio encerrados."
+  - "W4.13 usa sete fixtures sintéticas pelo navegador e a configuração real existente do Gemini, sem ler/expor chave ou enviar pacote privado. O teste percorreu dados, comparação, seis abas, downloads e reutilização da sessão. Nenhuma alteração de produção foi necessária."
+  - "Primeiro relatório real: b0982abb-f5d4-4938-8e5c-c23e326bb24c (Gemini). Segundo: 2a773e2a-d23b-46d2-bf8c-061bb76abbb5 (fallback após validação das evidências e reparo). HTMLs/capturas/console preservados localmente; relatórios da API deixam de existir ao encerrar o processo."
+  - "W4.12 injeta falhas apenas no transporte HTTP do SDK oficial, com configurações artificiais sem ler .env. Rotas, upload, ferramentas locais, validação, reparo, fallback e relatório executam normalmente; nenhuma dependência ou código de produção alterado."
+  - "Matriz confirma uma repetição de 429, no máximo um reparo para saída inválida, fechamento de clientes e ausência de detalhes internos. Falhas de síntese preservam NDVI sem recalcular; falhas no início usam somente fatos disponíveis. Outra investigação e download funcionam no mesmo dataset após cada falha."
+  - "W4.11 adiciona Antes de apresentar na tela Dados, antes do upload. Mount/Atualizar status consultam somente health; Testar Gemini faz POST explícito sem pacote ou investigação. Configurado não significa conexão confirmada; latência vem do backend, inclusive zero. Sem chave, teste bloqueado até atualizar a configuração."
+  - "Painel valida e projeta campos públicos, usa mensagens locais de erro e textContent, bloqueia duplicatas, cancela ao sair e ignora respostas atrasadas. Ações manuais focam o status; estado global e dataset permanecem intactos. Nenhum segredo configurado no frontend."
+  - "W4.10 preserva foco ao navegar, adiciona skip link, regiões de tabela focáveis, nomes/instruções dos campos e foco nos resultados/erros do upload. Progresso fica fora do aria-busy do formulário para continuar acessível."
+  - "Abas quebram em linhas, campos adaptam à largura e textos auxiliares têm 14 px; tabelas mantêm rolagem interna e palavras legíveis. Critérios não dependem de hover; movimento reduzido respeitado. Contrastes de texto/estados acima de 5,4:1, bordas 3,3:1, foco 8,9:1."
+  - "W4.09 publica apenas frontend/dist pelo FastAPI, independente do cwd, com fallback do index.html para navegação. API/documentação preservam métodos e respostas; assets ausentes não viram HTML. Sem build, a API funciona e a interface orienta compilar."
+  - "Build usa a mesma origem para API; proxy Vite e override VITE_API_BASE_URL só em desenvolvimento. Apresentação local mantém APP_ENV=development para preservar a comparação via diagnóstico, sem mudar as restrições desse endpoint."
+  - "Continuidade na branch pessoal feat/lorena, a partir da entrega W3 em 20b0e6f; main não foi alterada."
+  - "W4.01 implementa o ciclo de estado; W4.02 conecta o botão ao POST /api/investigations com dataset, talhões, período e pergunta, validando o envelope de resposta."
+  - "Durante a requisição, controles e navegação ficam bloqueados. O endpoint síncrono não informa etapas em tempo real; a interface lista o fluxo e usa progresso indeterminado."
+  - "Com dataset importado, o resultado apresenta título, resumo e força da evidência, identificado como Gemini ou fallback. Mocks ficam somente no fluxo sem upload. Conteúdo externo renderizado com textContent."
+  - "Visão de solo após o resumo apresenta qualidade, estatísticas e comparação entre conjuntos a partir de evidence. Cada chamada/filtro permanece separado, sem agregar contagens ou recalcular valores."
+  - "Detalhes de solo acessíveis por seletores e tabelas expansíveis; ausências explícitas, unidades não documentadas identificadas e aviso de escopo geral sem vínculo com talhão. Atalho da visão de solo abre a aba de gráficos reais."
+  - "Achados e recomendações preservam a ordem do relatório e exibem evidências relacionadas com método e fontes em detalhes expansíveis. Listas vazias são explícitas."
+  - "Antes de COMPLETED, o adaptador exige ao menos uma referência existente por card, campos textuais válidos e IDs de evidência únicos; falhas seguem o fluxo de erro da investigação. Não há remoção silenciosa de cards."
+  - "Resultado possui abas Visão geral, Solo, Evidências, Gráfico NDVI, Métodos e Limitações, com navegação ARIA por clique/setas/Home/End e preservação do DOM da visão geral. Painéis textuais são renderizados na primeira abertura, sem novas requisições."
+  - "Limitações preservam título/explicação/regra. Métodos usam campos explícitos e argumentos permitidos por ferramenta; nunca serializam trace ou arguments completos. Mensagens de falha são locais, sem corpo de erro ou detalhes do reparo."
+  - "Horários exibidos em UTC; duração por chamada e reparo em ms, sem inventar duração total. Modelo identificado como configurado; fallback identificado como geração local. Adaptador valida limitações e formato dos metadados antes de COMPLETED."
+  - "W4.08 gera HTML escapado e autocontido no backend, com CSS embutido e tabelas equivalentes aos valores das evidências, incluindo NDVI/solo. Sem JavaScript ou recursos externos; CSP no cabeçalho HTTP e no arquivo. Métodos usam projeção explícita sem prompts/chaves/erros internos."
+  - "GET /api/investigations/{investigation_id}/report entrega o HTML da investigação concluída sem chamar o Gemini ou refazer análises. Últimos 32 relatórios por processo ficam somente em memória; reinício ou expulsão retorna 404. Execução local com um processo, como o armazenamento de datasets."
+  - "Botão Baixar relatório HTML bloqueia cliques repetidos, permite repetir uma falha, cancela ao sair da tela e libera a URL do Blob após iniciar o download. Mantém dataset e investigação concluída."
+  - "Gráficos usam somente chart_data, conferido contra evidence. Não há normalização, interpolação ou cálculo estatístico no frontend. Cada chamada de solo é selecionável separadamente; distribuições e pares têm seletores independentes."
+  - "Chart.js é montado em painel visível e descartado ao trocar filtro/aba ou sair do resultado. Retornar à aba recria os gráficos; tabela, unidade, contagem e fonte acompanham cada visualização."
+  - "Aba de evidências usa valores escalares e contagens recebidos; solo mantém tabelas próprias sem alvo/referência. Nulos não viram zero e a diferença de conformidade é identificada em pontos percentuais."
+  - "runInvestigation(execute) recebe a operação do chamador, bloqueia antes de agendá-la e compartilha uma única Promise até finalizar. Não cria requisições por conta própria."
+  - "Resultado completo fica em state.investigation; fallback válido também significa COMPLETED. Falhas preservam o erro e dataset em ERROR; resetAfterError segue ERROR → EMPTY e limpa o pacote."
+  - "startNewComparison só aceita COMPLETED sem operação pendente e mantém o mesmo dataset; limpa o resultado anterior. setDataset bloqueia substituição durante a investigação."
+problemas_conhecidos:
+  - "Mapa, tempo e profundidade de solo não estão disponíveis por ausência dos campos necessários."
+  - "W4.10 verificada no navegador com teclado e viewports; sem leitor de tela dedicado ou projetor físico. Download de teste contém apenas fixtures sintéticas."
+  - "W4.13 confirmou dois downloads reais pelo navegador e validou os HTMLs por leitura/parser. Visualização offline não realizada: política do navegador integrado bloqueia file:. A aplicação online foi inspecionada normalmente."
+  - "A comparabilidade anterior à investigação continua usando o diagnóstico disponível no ambiente de desenvolvimento."
+  - "Nove testes backend dependem dos CSVs privados; os três avisos de dependências já existiam."
+  - "Executar pnpm build antes da regressão para incluir o teste do build real; sem dist/index.html esse caso é ignorado. Recarregar a página reinicia o estado em memória do frontend, inclusive em rotas servidas pelo fallback."
+arquivos_importantes_alterados:
+  - "CONGELAMENTO_APRESENTACAO.md e VERSAO_APRESENTACAO.json (W4.15)"
+  - "ROTEIRO_DEMONSTRACAO.md e demo-data/README.md (W4.14)"
+  - "backend/tests/test_presentation_failures.py e frontend/tests/investigation-flow.test.js (matriz W4.12)"
+  - "frontend/src/ui/preflight.js, frontend/tests/preflight.test.js e frontend/tests/preflight-api.test.js"
+  - "frontend/src/styles/base.css, frontend/src/ui/upload.js e frontend/tests/accessibility.test.js"
+  - "backend/app/frontend.py, backend/app/main.py e backend/tests/test_frontend.py"
+  - "frontend/vite.config.js e frontend/tests/api-origin.test.js"
+  - "frontend/src/state.js"
+  - "frontend/tests/state.test.js"
+  - "frontend/src/api.js, frontend/src/main.js e frontend/src/styles/components.css"
+  - "frontend/src/ui/comparison.js, navigation.js, progress.js e results.js"
+  - "frontend/src/ui/soil-overview.js e frontend/tests/results.test.js"
+  - "frontend/src/ui/report-cards.js"
+  - "frontend/src/ui/evidence.js e frontend/tests/evidence.test.js"
+  - "frontend/src/ui/investigation-charts.js, frontend/src/chart-data.js e frontend/tests/investigation-charts.test.js"
+  - "frontend/src/charts/analytics-charts.js e frontend/src/ui/dom.js"
+  - "frontend/src/ui/audit-panels.js e frontend/tests/audit-panels.test.js"
+  - "backend/app/reports/html_report.py, store.py, backend/app/api/investigations.py e backend/tests/test_html_report.py"
+  - "frontend/tests/report-download.test.js"
+  - "frontend/tests/comparison.test.js, investigation-api.test.js e investigation-flow.test.js"
+  - "README.md, PLANEJAMENTO_CODEX.md e HANDOFF.md"
+versao_da_apresentacao: "Congelada: apresentacao-w4-2026-10-18 (tag local). W4.01–W4.15 concluídas; sem push."
+proximo_passo: "W4 encerrada. Apresentador deve ensaiar fala e conferir reservas offline; publicar commit/tag somente quando solicitado. Mudanças críticas exigem nova validação e identificação."
 ```
 
 ## 12. Decisões pendentes

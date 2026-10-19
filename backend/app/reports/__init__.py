@@ -1,1 +1,1 @@
-"""Reserved for report generation implemented in Week 4."""
+"""Offline report generation and temporary local-session storage."""

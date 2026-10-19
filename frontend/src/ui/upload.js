@@ -54,12 +54,15 @@ export function createUploadView() {
   const picker = element('label', 'file-picker')
   const pickerTitle = element('strong', '', 'Escolher arquivos')
   const pickerHint = element('span', '', 'Somente os nomes previstos · limite total de 100 MB')
+  pickerTitle.id = 'upload-label'
+  pickerHint.id = 'upload-hint'
   const input = document.createElement('input')
   input.type = 'file'
   input.name = 'files'
   input.accept = '.csv,text/csv'
   input.multiple = true
-  input.setAttribute('aria-describedby', 'upload-status')
+  input.setAttribute('aria-labelledby', 'upload-label')
+  input.setAttribute('aria-describedby', 'upload-hint upload-status')
   picker.append(pickerTitle, pickerHint, input)
 
   const actions = element('div', 'upload-actions')
@@ -73,7 +76,8 @@ export function createUploadView() {
   const statusMessage = element('p', 'status-message', 'Nenhum arquivo selecionado.')
   statusMessage.id = 'upload-status'
   statusMessage.setAttribute('role', 'status')
-  statusMessage.setAttribute('aria-live', 'polite')
+  statusMessage.setAttribute('aria-atomic', 'true')
+  statusMessage.tabIndex = -1
   form.append(header, picker, actions, statusMessage)
 
   const inventory = element('aside', 'surface inventory-panel')
@@ -85,6 +89,7 @@ export function createUploadView() {
   resultSection.hidden = true
   const resultHeader = element('div', 'result-heading')
   const resultTitle = element('h2', '', 'Resultado da validação')
+  resultTitle.tabIndex = -1
   const quality = element('strong', 'quality-score')
   resultHeader.append(resultTitle, quality)
   const fieldList = element('ul', 'field-list')
@@ -148,6 +153,7 @@ export function createUploadView() {
   }
 
   input.addEventListener('change', () => {
+    statusMessage.setAttribute('role', 'status')
     if (state.status === AppState.ERROR) resetAfterError()
     selectedFiles.push(...Array.from(input.files ?? []))
     input.value = ''
@@ -163,6 +169,7 @@ export function createUploadView() {
   })
 
   clearButton.addEventListener('click', () => {
+    statusMessage.setAttribute('role', 'status')
     if (state.status === AppState.ERROR) resetAfterError()
     selectedFiles = []
     serverFiles = null
@@ -171,6 +178,7 @@ export function createUploadView() {
     continueButton.disabled = true
     statusMessage.textContent = 'Nenhum arquivo selecionado.'
     renderFiles()
+    input.focus()
   })
 
   form.addEventListener('submit', async (event) => {
@@ -191,6 +199,7 @@ export function createUploadView() {
       statusMessage.textContent = 'Pacote pronto para continuar.'
       renderFiles()
       renderResult(payload)
+      if (section.isConnected) resultTitle.focus()
     } catch (error) {
       setError(error)
       transitionTo(AppState.ERROR)
@@ -201,6 +210,8 @@ export function createUploadView() {
         renderResult(payload)
       }
       statusMessage.textContent = error instanceof Error ? error.message : 'Falha inesperada na validação.'
+      statusMessage.setAttribute('role', 'alert')
+      if (section.isConnected) statusMessage.focus()
     } finally {
       setBusy(false)
     }
