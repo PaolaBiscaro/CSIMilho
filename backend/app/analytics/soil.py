@@ -5,7 +5,10 @@ from typing import get_args
 import numpy as np
 
 from app.analytics.common import AnalysisUnavailableError, metadata
-from app.analytics.contracts import SoilGroupsEvidence, SoilMetricName, SoilSummaryEvidence
+from app.analytics.contracts import (
+    SoilGroupsEvidence, SoilMetricName, SoilStatisticalEvidence, SoilSummaryEvidence,
+)
+from app.analytics.statistics import holm_adjust, paired_sign_statistics, select_paired_continuous_test
 
 SOURCES = ["soil_analysis.csv"]
 LIMITATIONS = [
@@ -109,4 +112,76 @@ def compare_soil_measurement_groups(dataset, metrics=None, *, ids=None):
     return SoilGroupsEvidence(
         **metadata(ids, "SOIL-GROUPS", SOURCES, "Comparação pareada por AMOSTRA e variável; delta = Conjunto 2 − Conjunto 1; mediana dos deltas válidos.", None, len(samples)),
         sample_count=len(samples), metrics=output, warnings=warnings, limitations=LIMITATIONS,
+    )
+
+
+def test_soil_measurement_groups(dataset, metrics=None, *, ids=None):
+    """Test paired group differences without assigning groups to time or depth."""
+    paired = compare_soil_measurement_groups(dataset, metrics=metrics)
+    tests = []
+    executed_positions = []
+    raw_p_values = []
+    for metric in paired.metrics:
+        deltas = [pair.delta for pair in metric.pairs]
+        nonzero = sum(abs(value) > 1e-12 for value in deltas)
+        selection = select_paired_continuous_test(
+            nonzero, repeated_time=False, multiple_metrics=True
+        )
+        base = {
+            "name": metric.name,
+            "family": metric.family,
+            "pair_count": len(deltas),
+            "nonzero_pairs": nonzero,
+            "median_delta": metric.median_delta,
+        }
+        if selection.method == "descriptive_only":
+            tests.append(
+                {
+                    **base,
+                    "status": "insufficient_data",
+                    "explanation": selection.reason,
+                }
+            )
+            continue
+        result = paired_sign_statistics(deltas)
+        executed_positions.append(len(tests))
+        raw_p_values.append(result["p_value"])
+        tests.append(
+            {
+                **base,
+                "status": "executed",
+                "confidence_level": result["confidence_level"],
+                "median_ci_low": result["median_ci_low"],
+                "median_ci_high": result["median_ci_high"],
+                "raw_p_value": result["p_value"],
+                "rank_biserial": result["rank_biserial"],
+                "explanation": selection.reason,
+            }
+        )
+    if not executed_positions:
+        raise AnalysisUnavailableError(
+            "Teste de solo exige ao menos cinco pares não empatados em uma variável presente nos dois conjuntos."
+        )
+    adjusted = holm_adjust(raw_p_values)
+    for position, adjusted_p in zip(executed_positions, adjusted, strict=True):
+        tests[position]["adjusted_p_value"] = adjusted_p
+        tests[position]["significant_after_holm"] = adjusted_p <= 0.05
+    requested = [metric.name for metric in paired.metrics] if metrics is None else list(metrics)
+    return SoilStatisticalEvidence(
+        **metadata(
+            ids,
+            "SOIL-PAIRED-TEST",
+            SOURCES,
+            "Teste exato dos sinais por variável pareada pelo identificador AMOSTRA; ajuste de Holm controla múltiplos testes. Os conjuntos não são interpretados como data ou profundidade.",
+            None,
+            paired.sample_count,
+            metric="soil_group_paired_difference",
+        ),
+        comparison="group_2_minus_group_1",
+        alpha=0.05,
+        requested_metrics=requested,
+        executed_tests=len(executed_positions),
+        tests=tests,
+        warnings=paired.warnings,
+        limitations=LIMITATIONS,
     )

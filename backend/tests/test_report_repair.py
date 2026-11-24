@@ -71,7 +71,9 @@ def test_invalid_then_valid_repairs_with_same_facts_and_no_tool_reexecution(cont
     assert config.response_mime_type == "application/json" and REPAIR_INSTRUCTION in config.system_instruction
     assert 0 < remaining <= client.calls[-2][2]
     assert "PRIVATE" not in contents[0].parts[0].text + draft.model_dump_json()
-    assert context[0].question not in contents[0].parts[0].text
+    # The current report contract needs the original question to repair the
+    # direct executive answer, but no raw CSV or private provider content.
+    assert body["facts"]["question"] == context[0].question
     assert str(draft.planning.investigation_id) not in contents[0].parts[0].text
     if reason == "schema":
         assert any(item["location"] == "report.overview.summary" for item in body["errors"])

@@ -9,6 +9,7 @@ from uuid import UUID
 import pytest
 
 from app.analytics.common import AnalysisUnavailableError
+from app.analytics.contracts import ComparisonArgs, SingleFieldArgs
 from app.data.session_store import DatasetNotFoundError
 from app.harness import registry, trace
 from app.harness.schemas import InvestigationTrace, ToolCallTrace
@@ -24,19 +25,40 @@ def recorder(context):
     return InvestigationRecorder(request, model="configured-test-model", store=store)
 
 
-@pytest.mark.parametrize("name", list(registry.TOOLS))
+@pytest.mark.parametrize(
+    "name",
+    [name for name in registry.TOOLS if name not in {
+        "associate_field_operations_ndvi", "test_soil_measurement_groups",
+    }],
+)
 def test_real_tool_execution_records_required_metadata_and_round_trips(context, recorder, name):
-    request, _ = context
-    args = {"dataset_id": str(request.dataset_id)} if "soil" in name else comparison_args(request)
-    result = recorder.run_tool(name, args)
-    snapshot = recorder.snapshot()
+    request, store = context
+    parameter_model = registry.TOOLS[name].parameters
+    selected_recorder = recorder
+    if issubclass(parameter_model, ComparisonArgs):
+        args = comparison_args(request)
+    elif issubclass(parameter_model, SingleFieldArgs):
+        single_request = request.model_copy(
+            update={"analysis_mode": "single_field", "reference_field_id": None}
+        )
+        selected_recorder = InvestigationRecorder(
+            single_request, model="configured-test-model", store=store
+        )
+        args = {
+            "dataset_id": str(request.dataset_id), "field_id": request.target_field_id,
+            "period": "full_season",
+        }
+    else:
+        args = {"dataset_id": str(request.dataset_id)}
+    result = selected_recorder.run_tool(name, args)
+    snapshot = selected_recorder.snapshot()
     assert snapshot.dataset_id == request.dataset_id
     assert snapshot.model == "configured-test-model"
-    assert snapshot.trace_id == recorder.trace_id
+    assert snapshot.trace_id == selected_recorder.trace_id
     assert snapshot.created_at.utcoffset() == timedelta(0)
     assert len(snapshot.calls) == 1
     call = snapshot.calls[0]
-    assert call.sequence == 1 and call.tool == name and call.trace_id == recorder.trace_id
+    assert call.sequence == 1 and call.tool == name and call.trace_id == selected_recorder.trace_id
     assert call.result_evidence_ids == [result.evidence_id]
     assert call.source_files == result.source_files
     assert call.tool_version == result.tool_version == registry.TOOLS[name].version
@@ -57,6 +79,25 @@ def test_ids_are_generated_once_and_distinct_per_investigation(context):
     assert one.trace_id == one.snapshot().trace_id == one.snapshot().trace_id
     with pytest.raises(AttributeError):
         one.investigation_id = two.investigation_id
+
+
+def test_progress_events_report_real_tool_execution_without_arguments(context):
+    request, store = context
+    events = []
+    recorder = InvestigationRecorder(request, model="test", store=store, progress_sink=events.append)
+    recorder.run_tool("validate_comparison", comparison_args(request))
+    assert [event["stage"] for event in events] == ["tool_started", "tool_completed"]
+    assert all(event["tool"] == "validate_comparison" for event in events)
+    assert all("arguments" not in event and request.question not in str(event) for event in events)
+
+
+def test_progress_callback_failure_never_interrupts_analysis(context):
+    request, store = context
+    def broken(_event):
+        raise RuntimeError("presentation unavailable")
+    recorder = InvestigationRecorder(request, model="test", store=store, progress_sink=broken)
+    result = recorder.run_tool("validate_comparison", comparison_args(request))
+    assert result.allowed is True
 
 
 def test_duration_uses_monotonic_clock_when_wall_clock_moves_back(context, monkeypatch):

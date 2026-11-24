@@ -106,7 +106,7 @@ class BuildResources(HTMLParser):
             self.paths.append(attrs["href"])
 
 
-def test_actual_build_and_complete_local_flow_share_one_origin(presentation_package, monkeypatch):
+def test_actual_build_and_blocked_report_flow_share_one_origin(presentation_package, monkeypatch):
     if not (FRONTEND_DIST / "index.html").is_file():
         pytest.skip("Execute pnpm build em frontend para validar a entrega compilada.")
     local = settings(GEMINI_API_KEY=None, APP_ENV="development")
@@ -137,8 +137,7 @@ def test_actual_build_and_complete_local_flow_share_one_origin(presentation_pack
         comparison = client.post("/api/diagnostics/tools", json={"tool": "validate_comparison", "arguments": args})
         assert comparison.status_code == 200 and comparison.json()["allowed"] is True
         result = client.post("/api/investigations", json={**args, "question": "Como os talhões se comparam?"})
-        assert result.status_code == 200 and result.json()["status"] == "completed"
-        assert result.json()["generated_by"] == "deterministic_fallback"
-        report = client.get(f'/api/investigations/{result.json()["investigation_id"]}/report')
-        assert report.status_code == 200 and "attachment" in report.headers["content-disposition"]
+        assert result.status_code == 503
+        assert result.json()["detail"]["code"] == "missing_api_key"
+        assert "preservado" in result.json()["detail"]["message"]
         assert provider.call_count == 0

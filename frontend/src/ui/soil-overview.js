@@ -20,7 +20,7 @@ function evidenceCard(evidence, title) {
   card.dataset.evidenceId = evidence.evidence_id
   card.append(element('h3', '', title), element('p', 'chart-source',
     `${evidence.evidence_id} · Fonte: ${evidence.source_files.join(', ')}`))
-  for (const text of [...evidence.warnings, ...evidence.limitations]) {
+  for (const text of evidence.warnings) {
     card.append(element('p', 'chart-hint', text))
   }
   return card
@@ -36,7 +36,7 @@ function summaryCard(evidence) {
   const group = GROUPS[evidence.measurement_group]
   const card = evidenceCard(evidence, `Resumo descritivo · ${group}`)
   card.append(metricsCard([
-    ['Amostras', formatValue(evidence.sample_count), 'Escopo geral do dataset'],
+    ['Amostras', formatValue(evidence.sample_count), 'Pacote importado'],
     ['Completude do recorte', percent(evidence.completeness_percent), `${formatValue(evidence.valid_values)} de ${formatValue(evidence.expected_values)} valores nas métricas retornadas`],
     ['Textura válida', formatValue(evidence.texture.valid_n), `${formatValue(evidence.texture.excluded_n)} amostras excluídas da composição`],
   ]))
@@ -79,7 +79,7 @@ function groupsCard(evidence) {
     selected.replaceChildren(metricsCard([
       ['Pares válidos', formatValue(item.valid_n), item.name],
       ['Delta mediano · 2 − 1', formatValue(item.median_delta), unit(item)],
-      ['Amostras no dataset', formatValue(evidence.sample_count), 'Sem associação aos talhões'],
+      ['Amostras no pacote', formatValue(evidence.sample_count), 'Sem associação aos talhões'],
     ]), details(`Ver valores por amostra · ${item.name}`,
       table(`Pares · ${item.name} · ${unit(item)} · ${evidence.evidence_id}`, ['Amostra', 'Conjunto 1', 'Conjunto 2', 'Delta 2 − 1'],
         item.pairs.map((pair) => [pair.sample_id, formatValue(pair.group_1), formatValue(pair.group_2), formatValue(pair.delta)])),
@@ -97,9 +97,8 @@ export function createSoilOverview(evidence) {
   const title = element('h2', '', 'Visão de solo')
   title.id = 'soil-overview-title'
   const scope = element('aside', 'soil-summary')
-  scope.append(element('strong', '', 'Contexto geral do dataset'),
-    element('span', '', 'As amostras não pertencem aos talhões selecionados. Não há vínculo documentado com talhão, coordenada, data ou profundidade.'),
-    element('span', '', 'Conjunto 1 e Conjunto 2 são grupos de medição; o significado do sufixo _2 não está documentado. Não há classificação de suficiência agronômica.'))
+  scope.append(element('strong', '', 'Escopo do solo'),
+    element('span', '', 'Amostras do pacote importado, sem associação aos talhões selecionados.'))
   section.append(title, scope)
   // Keep each tool call separate: filtered calls can contain different metrics
   // and coverage denominators, so they must not be aggregated in the browser.

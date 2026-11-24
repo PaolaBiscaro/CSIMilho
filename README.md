@@ -1,8 +1,18 @@
 # FarmLab Investigator
 
-MVP acadêmico para importar e validar sete arquivos CSV agrícolas, com foco descritivo em análise de solo, antes de executar análises rastreáveis.
+## Estado atual — chat analítico e relatório executivo
 
-**W4 concluída e congelada:** tag local `apresentacao-w4-2026-10-18`, na branch `feat/lorena`. Consulte o [registro de congelamento](CONGELAMENTO_APRESENTACAO.md), o [inventário de versões](VERSAO_APRESENTACAO.json) e o [roteiro da demonstração](ROTEIRO_DEMONSTRACAO.md). Validação final: **880 testes backend e 164 frontend passaram**, build aprovado; nove testes privados ignorados e três avisos existentes. Não adicionar funcionalidades após o congelamento sem necessidade crítica. Commit e tag ainda não publicados no remoto.
+A interface principal aceita perguntas sobre o pacote CSV ativo. O orquestrador classifica a mensagem como catálogo de dados, catálogo de capacidades, descrição, investigação ou pedido fora do escopo. Perguntas descritivas recebem uma resposta curta; perguntas investigativas executam todos os módulos elegíveis e, somente após validação, abrem um relatório de rolagem Top-Down com duas áreas: **Resposta** e **Detalhes técnicos**.
+
+Durante a análise, o status e o tempo decorrido ficam visíveis e os eventos operacionais podem ser abertos sob demanda. Esses eventos informam classificação, módulos iniciados, concluídos ou bloqueados e validação do relatório; não exibem cadeia de pensamento, prompt, CSV bruto ou credenciais. O botão de cancelamento interrompe a espera da interface sem descartar o dataset. Falhas do Gemini bloqueiam a entrega do relatório, preservam o pacote e permitem nova tentativa — não existe relatório final por fallback local.
+
+O endpoint principal é `POST /api/chat/respond/stream`. Investigações validadas podem ser baixadas por `GET /api/chat/reports/{turn_id}` como HTML autocontido, sem JavaScript ou recursos externos e com impressão A4. O backend continua aceitando até três chaves Gemini e aplica a rotação a cada interação com o provedor.
+
+Aplicação acadêmica para importar e validar sete arquivos CSV agrícolas, responder perguntas descritivas e produzir investigações rastreáveis.
+
+Validação atual de 23/11/2026: **112 testes focados do backend e 139 testes do frontend passaram**, além do build Vite de produção. O ensaio de talhão único concluiu em 17,079 segundos e a pergunta combinada em 74,947 segundos. Duas chaves Gemini foram reconhecidas e os dois relatórios-reserva passaram pela verificação de segurança. Permanece a revisão de domínio e a conferência visual da apresentação; consulte a [validação para apresentação](VALIDACAO_APRESENTACAO.md), o [planejamento executivo](PLANEJAMENTO_RELATORIO_EXECUTIVO.md) e o [roteiro da demonstração](ROTEIRO_DEMONSTRACAO.md).
+
+As seções identificadas por semanas e entregas W2–W4 abaixo são registro histórico. Em caso de divergência, o estado atual descrito no início deste arquivo e os três documentos acima prevalecem.
 
 ## Pré-requisitos
 
@@ -107,27 +117,25 @@ Nas abas do resultado, use **setas esquerda/direita**, **Home** e **End**. As ta
 
 Verificação em **2026-10-18**: **132 testes Vitest passaram**, build aprovado e **22 testes HTTP do build passaram**, com os três avisos existentes. Fluxo de fixtures sintéticas conferido no navegador por teclado até o download e nova comparação; seis abas inspecionadas em **390, 820 e 1440 px**, sem estouro horizontal do documento. Tabelas usam rolagem interna. Os contrastes calculados dos textos principais e estados ficaram acima de 5,4:1; bordas de campos em 3,3:1. A leitura para apresentação foi avaliada no navegador desktop, sem projetor físico ou leitor de tela dedicado. Não houve chamada real ao Gemini. Próximo item: **W4.11 — painel de pré-apresentação**.
 
-### Conferir a conexão antes de apresentar — W4.11
+### Testar a conexão com o Gemini
 
-Na tela **Dados**, o painel **Antes de apresentar** consulta o backend automaticamente, mesmo sem arquivos importados. **Atualizar status** verifica novamente a configuração, o modelo e a versão. Essa consulta não chama o Gemini: **Configurado · conexão não testada** significa apenas que a chave foi detectada no backend.
-
-Use **Testar Gemini** para fazer uma chamada curta ao modelo, sem enviar o pacote ou iniciar uma investigação. O painel mostra confirmação, latência medida pelo backend (inclusive `0 ms`) ou uma mensagem compreensível de falha; permite repetir o teste. Sem chave, configure `GEMINI_API_KEY` somente no backend, reinicie o servidor se necessário e atualize o status. Não coloque credenciais em variáveis `VITE_*`. O painel preserva o dataset e o estado da investigação.
+Na tela **Dados**, o botão compacto **Testar conexão com o Gemini** faz uma chamada curta ao modelo somente quando acionado. Ele não envia o pacote nem inicia uma investigação e apresenta apenas a confirmação ou uma mensagem útil de falha. Informações internas de servidor, modelo, versão e latência não ocupam a tela. Não coloque credenciais em variáveis `VITE_*`.
 
 Verificação em **2026-10-18**: **159 testes Vitest**, **53 testes backend de health/Gemini/build** e build aprovados, com três avisos backend existentes. Sucesso e falhas do Gemini simulados; painel sem chave conferido no navegador em 390, 820 e 1440 px e com atualização por teclado. Nenhuma chamada real ao Gemini nesta etapa. Próximo item: **W4.12 — testar falhas reais**.
 
 ### Continuidade após falhas — W4.12
 
-A investigação conclui com **Relatório local · fallback** e um aviso explicando o motivo quando o Gemini falha. O relatório pode ser baixado e uma nova comparação usa o mesmo pacote. O fallback utiliza as evidências disponíveis: uma falha no início pode produzir um relatório mais limitado; uma falha na síntese preserva as análises já calculadas.
+A investigação só conclui quando o Gemini produz um relatório aprovado pelos validadores. Se o provedor falhar, a entrega é bloqueada com uma mensagem segura; o dataset permanece na sessão para nova tentativa sem outro upload. Nenhum relatório de contingência é publicado ou oferecido para download como resposta final.
 
 | Cenário validado | Comportamento confirmado |
 | --- | --- |
-| Sem chave | Plano local sem criar cliente do provedor; aviso de chave ausente. |
-| Timeout no planejamento ou na síntese | Fallback com aviso de prazo excedido. |
-| Limite de uso (429) no planejamento ou na síntese | Uma única repetição e fallback se o erro persistir. |
-| JSON ou schema inválido | Uma tentativa de reparo e fallback se a saída continuar inválida. |
-| Resposta vazia | Fallback com aviso de resposta inutilizável. |
+| Sem chave | Erro `missing_api_key`; dataset preservado e nenhum relatório salvo. |
+| Timeout no planejamento ou na síntese | Entrega bloqueada com erro de prazo. |
+| Limite de uso (429) | Rotação pelas chaves saudáveis; bloqueio se todas falharem. |
+| JSON ou schema inválido | Uma tentativa de reparo; bloqueio se a substituição continuar inválida. |
+| Resposta vazia | Entrega bloqueada por resposta inutilizável. |
 
-Os oito cenários HTTP usam o SDK oficial com transporte de rede simulado e arquivos sintéticos, sem consumir a API real. Verificam também o teste de conexão, download, sessão reutilizável e ausência de credenciais/detalhes internos nos resultados. Cinco casos frontend verificam os avisos e uma nova investigação após fallback. Para repetir a matriz, execute em `backend`: `.\.venv\Scripts\python.exe -m pytest tests/test_presentation_failures.py --tb=short`.
+Os cenários automatizados usam falhas simuladas, sem consumir a API real, e verificam que não há publicação nem download após erro, que a sessão continua válida e que credenciais ou detalhes internos não aparecem na resposta. Para repetir a matriz, execute em `backend`: `.\.venv\Scripts\python.exe -m pytest tests/test_presentation_failures.py --tb=short`.
 
 Validação da W4.12 em **2026-10-18**: **880 testes backend passaram, 9 privados ignorados e 3 avisos existentes (45,29 s)**; **164 testes Vitest**, build Vite e `git diff --check` aprovados. Nenhuma correção no código de produção foi necessária. Próximo item: **W4.13 — teste ponta a ponta**.
 
@@ -147,7 +155,7 @@ O [roteiro da demonstração](ROTEIRO_DEMONSTRACAO.md) reúne preparação, perg
 
 Ensaios operacionais de 18/10/2026: **60,4 s com Gemini**, **42,6 s com fallback sem chave** e **59,7 s com fallback por timeout**, incluindo as seis abas, download e Nova comparação. Sem erros/avisos de console capturados. A meta de dois minutos foi observada na automação; a fala humana ainda deve ser ensaiada com cronômetro. O roteiro usa limite de 75 s no processo principal e explica o modo local sem alterar `.env`. Próximo item: **W4.15 — congelar a versão da apresentação**.
 
-## Comparação e gráficos locais — Semana 2
+## Comparação e gráficos — Semana 2
 
 A tela **Comparação** usa os pares retornados pelo upload, atualiza a pergunta ao trocar os talhões e mostra os cinco critérios e as análises disponíveis. Pares com finalidade ou cultura incompatível são bloqueados; a ordem inversa dos pares válidos é permitida.
 
@@ -169,17 +177,7 @@ Exemplo de corpo após importar um pacote (substitua os IDs pelos retornados pel
 
 O registry está em `backend/app/harness/registry.py`; apesar do diretório previsto no SPEC, ele é apenas um catálogo e executor local, sem harness de IA. As seis análises estão em `backend/app/analytics/`. Parâmetros de período também aceitam `{ "start": "2025-01-01", "end": "2025-02-01" }`; a interface desta etapa oferece a safra completa.
 
-Para conferir a interface:
-
-1. Abra **Comparação** sem upload para explorar os pares fictícios.
-2. Verifique que Grão × Silagem mantém o botão bloqueado.
-3. Clique em **Ver gráficos demonstrativos** com um par permitido.
-4. Explore **Solo**: distribuição, Conjunto 1 × Conjunto 2 e composição de textura; altere família, métrica e conjunto.
-5. Abra **Gráfico NDVI** para a trajetória pareada. Todos os gráficos possuem tabela acessível, legenda/tooltip, contagem, unidade e fonte.
-
-Sem upload, a tela **Investigação** apresenta uma prévia identificada, com dados fictícios de `frontend/src/mocks/analytics-preview.json`, derivados das fixtures manuais e conferidos pelos testes do backend. Os gráficos usam Chart.js e apenas apresentam os valores prontos; não calculam estatísticas no navegador e não representam o pacote importado. As instâncias anteriores são destruídas ao mudar filtro, aba ou página.
-
-Para investigar um pacote, importe os sete CSVs, clique em **Continuar**, escolha um par permitido e use **Executar investigação**. A aba **Visão geral** apresenta título, resumo, força da evidência e origem Gemini ou fallback. A **Visão de solo** permite consultar qualidade, estatísticas e comparação entre conjuntos, com detalhes em tabelas expansíveis. Em seguida, os cards de achados e recomendações mostram explicações, justificativas e referências às evidências. Abra **Evidências** para consultar valores, unidades, contagens e fontes; **Solo** e **Gráfico NDVI** apresentam os gráficos dos resultados disponíveis. **Métodos** detalha a execução e **Limitações** apresenta as restrições e regras associadas.
+Comparação e Investigação permanecem bloqueadas sem um pacote validado. Para investigar, importe os sete CSVs, clique em **Continuar**, escolha um par permitido e use **Executar investigação**. A aba **Visão geral** apresenta título, resumo, força da evidência e origem Gemini ou contingência. A **Visão de solo** permite consultar qualidade, estatísticas e comparação entre conjuntos, com detalhes em tabelas expansíveis. Em seguida, os cards de achados e recomendações mostram explicações, justificativas e referências às evidências. Abra **Evidências** para consultar valores, unidades, contagens e fontes; **Solo** e **Gráfico NDVI** apresentam somente os resultados calculados para os CSVs importados. **Métodos** detalha a execução e **Limitações** apresenta as restrições e regras associadas.
 
 Solo mantém escopo geral do dataset. Unidades desconhecidas aparecem explicitamente, e não há mapa, tendência temporal, profundidade ou classificação agronômica inventada. A textura usa percentuais normalizados no backend somente para amostras cuja soma original esteja entre 95 e 105; a soma original também aparece na tabela.
 
@@ -204,9 +202,15 @@ Não coloque `.env`, chaves de API ou CSVs privados no repositório. Use apenas 
 
 `uv sync --locked` instala o SDK oficial `google-genai` (2.31.0 no lockfile). O cliente síncrono está em `backend/app/harness/gemini_client.py`, seguindo a [documentação oficial do SDK](https://googleapis.github.io/python-genai/). Importar o módulo, construir `GeminiClient` ou abrir seu contexto `with` não cria o cliente do SDK nem faz chamadas externas; isso ocorre somente em `generate_content`. Use o contexto para encerrar as conexões ao terminar a operação.
 
-As configurações existentes são `GEMINI_API_KEY` (somente no backend), `GEMINI_MODEL` e `GEMINI_TIMEOUT_SECONDS` (45 segundos por requisição HTTP por padrão). Sem chave, uma geração retorna o erro controlado `missing_api_key`; a aplicação e o health check continuam funcionando. Falhas de autenticação, permissão, modelo, cota, timeout, conexão e serviço recebem códigos e mensagens em português, sem incluir a resposta bruta do provedor.
+O backend aceita até três credenciais: `GEMINI_API_KEY`, `GEMINI_API_KEY_2` e `GEMINI_API_KEY_3`. As reservas são opcionais e nunca são enviadas ao frontend, trace ou relatório. `GEMINI_TIMEOUT_SECONDS` define o prazo compartilhado da investigação (90 segundos por padrão), e `GEMINI_KEY_COOLDOWN_SECONDS` define por quanto tempo uma chave com falha transitória fica fora da seleção (30 segundos por padrão). `GEMINI_MODEL` continua selecionando o modelo. Sem nenhuma chave, uma geração retorna o erro controlado `missing_api_key`; a aplicação e o health check continuam funcionando.
 
-O SDK não executa ferramentas automaticamente e não repete requisições internamente. O orchestrator controla um prazo e uma repetição de 429 compartilhados entre ferramentas, síntese e reparo; o gerador de fallback está descrito na W3.13 abaixo. O endpoint de teste é descrito na seção W3.02; a verificação com chave real permanece pendente.
+O SDK não executa ferramentas automaticamente nem repete requisições internamente. Cada interação com o Gemini — planejamento, continuação, síntese ou reparo — passa pelo mesmo pool. Uma falha de autenticação ou permissão desativa somente a credencial afetada na investigação; cota, timeout, rede e indisponibilidade aplicam cooldown e tentam a próxima chave dentro do mesmo tempo restante. Erros de requisição ou schema não causam rotação. Quando todas as chaves falham, o erro é controlado e não contém credenciais nem resposta bruta do provedor.
+
+### Relatório executivo v2
+
+`POST /api/chat/investigate` executa a orquestração determinística e solicita ao Gemini apenas a organização editorial das evidências validadas. A resposta segue `ExecutiveInvestigationReportV2`: resposta direta no topo, até cinco insights, narrativas dos gráficos, partes não respondidas, limitações e apêndice técnico. O backend valida referências, números, gráficos, fontes, métodos e linguagem causal; uma saída rejeitada recebe no máximo um reparo dentro do prazo compartilhado.
+
+Somente um relatório Gemini aprovado recebe resposta de sucesso. Falta de chave, falha das reservas, cota, timeout ou duas saídas inválidas bloqueiam a entrega e mantêm o dataset disponível na sessão para nova tentativa. O relatório determinístico antigo pode continuar sendo usado por testes internos de renderização, mas não é publicado como resposta final da investigação.
 
 Verificação da W3.01 em 2026-10-15 no Windows: **179 testes Pytest aprovados**, **9 ignorados** por ausência do pacote privado. Os 25 testes novos exercitam o SDK com transporte HTTP em memória, sem rede, e cobrem criação sob demanda, configuração, erros, timeout, controle de chamadas e fechamento. `uv pip check` confirmou compatibilidade das dependências. Há três avisos de depreciação de terceiros (Starlette/httpx, AnyIO e tipagem interna do SDK no Python 3.14), sem falhas nos testes.
 
@@ -325,7 +329,7 @@ Chamadas em lote são executadas sequencialmente. O histórico preserva as parte
 
 `GEMINI_MAX_TOOL_CALLS` pode reduzir o orçamento, mas nunca ultrapassa oito execuções, incluindo a comparabilidade. Ao atingir o limite, o loop retorna `tool_limit` sem pedir outra rodada de planejamento; a síntese recebe todas as evidências, inclusive a última. Os demais motivos são `model_finished`, `invalid_comparison`, `error` e `timeout`. Texto livre de finalização do modelo não é aproveitado como relatório.
 
-O prazo usa `GEMINI_TIMEOUT_SECONDS`, relógio monotônico e o tempo restante para reduzir o timeout HTTP de cada geração. Há uma única repetição de 429 por investigação, com espera de até um segundo dentro desse orçamento. A verificação do prazo ocorre entre etapas síncronas: cálculos locais não são interrompidos durante a execução, e o timeout HTTP não é um cancelamento absoluto do processo. O cliente criado pelo orchestrator é fechado ao terminar; clientes injetados pertencem ao chamador. A função integrada W3.09 compartilha esse orçamento entre planejamento e síntese.
+O prazo usa `GEMINI_TIMEOUT_SECONDS`, relógio monotônico e o tempo restante para reduzir o timeout HTTP de cada geração e de cada tentativa do pool. A rotação não reinicia o relógio. A verificação do prazo ocorre entre etapas síncronas: cálculos locais não são interrompidos durante a execução, e o timeout HTTP não é um cancelamento absoluto do processo. Todos os clientes SDK criados pelo pool são fechados ao terminar; clientes injetados pertencem ao chamador. A função integrada W3.09 compartilha esse orçamento entre planejamento, síntese e reparo.
 
 Verificação em 2026-10-16: **34 testes do orchestrator passaram**, incluindo duas ferramentas e finalização com cliente fake, SDK real com transporte HTTP em memória, limites, falhas, privacidade, assinaturas/IDs e prazo total simulado. Nove novos testes verificam o timeout por chamada do cliente. Suíte backend naquela entrega: **460 passaram, 9 ignorados e 3 avisos de depreciação existentes**. Nenhuma chamada externa ou dependência nova. A síntese foi integrada na W3.09 abaixo.
 
@@ -385,7 +389,7 @@ Verificação da W3.12 em 2026-10-16: **34 testes novos de reparo passaram**, co
 
 ## Fallback determinístico — W3.13
 
-`build_fallback_report(evidence, warnings=(), reason="unavailable")`, em `backend/app/harness/fallback.py`, gera título, resumo, achados, limitações e recomendações por templates locais. Retorna `FallbackResult` com `report`, `generated_by="deterministic_fallback"` fixo e avisos preservados mais um aviso de fallback com motivo local seguro. Funciona sem chave, cliente ou rede; não chama ferramentas, não recalcula métricas e não altera as evidências recebidas. Depois de uma falha no reparo, pode consumir `draft.planning.evidence`, `draft.planning.warnings` e `reason=draft.error.code`, preservando o trace original.
+`build_fallback_report(evidence, warnings=(), reason="unavailable")`, em `backend/app/harness/fallback.py`, gera título, resumo, achados, limitações e recomendações por regras determinísticas. Retorna `FallbackResult` com `report`, `generated_by="deterministic_fallback"` fixo e avisos preservados mais um aviso de contingência com motivo seguro. Funciona sem chave, cliente ou rede; não chama ferramentas, não recalcula métricas e não altera as evidências recebidas. Depois de uma falha no reparo, pode consumir `draft.planning.evidence`, `draft.planning.warnings` e `reason=draft.error.code`, preservando o trace original.
 
 A ordem de apresentação é comparabilidade, condição inicial diferente quando sinalizada, resumos de solo por conjunto, contraste entre conjuntos, NDVI, condição inicial restante, aplicações (CALAGEM primeiro) e população. Empates usam `evidence_id`; métricas de solo usam nome. Esta é uma regra local de apresentação, sem ranking causal ou estatístico. Valores são formatados em português, com até seis casas decimais (duas para operações/população), preservando sinal e valores pequenos que seriam arredondados para zero. As recomendações citam somente evidências presentes e se limitam a conferência e documentação.
 
@@ -435,7 +439,7 @@ cd C:\Users\souza\CSIMilho\backend
 
 O primeiro comando valida pacote, par e configuração sem chamar o Gemini. `gemini_configured` informa somente a presença da chave, sem testar sua validade. O segundo executa uma investigação pelo harness e pode consumir a cota da API. Mantém os limites existentes de ferramentas, prazo, uma repetição por HTTP 429 e um reparo de relatório.
 
-O resumo JSON final indica `passed`, origem, modelo, ferramentas/status, avisos, reparo e caminho do relatório. Para passar, exige origem `gemini`, chamadas bem-sucedidas de comparabilidade, NDVI e resumo de solo, no máximo oito ferramentas, correspondência entre evidências e trace e aprovação dos validadores de estrutura, evidências/números e linguagem. Um fallback válido continua sendo **reprovação do teste real**. Códigos de saída: `0` para aprovação (ou checagem local válida), `1` para investigação concluída sem cumprir o cenário e `2` para configuração, entrada ou execução inválida.
+O resumo JSON final indica `passed`, origem, modelo, ferramentas/status, avisos, reparo e caminho do relatório. Para passar, exige origem `gemini`, chamadas bem-sucedidas de comparabilidade, NDVI e resumo de solo, no máximo oito ferramentas, correspondência entre evidências e trace e aprovação dos validadores de estrutura, evidências/números e linguagem. Falhas não geram artefato final. Códigos de saída: `0` para aprovação (ou checagem local válida), `1` para investigação concluída sem cumprir o cenário e `2` para configuração, entrada ou execução inválida.
 
 O envelope validado é salvo em `backend/.local/w3-15/<data>-<investigation_id>.json`, ignorado pelo Git. Abra o arquivo indicado por `report_path` e confira `report`, `evidence`, `trace.calls`, `trace.repair` e `warnings`: os achados devem corresponder às evidências, o solo deve permanecer no escopo do dataset e as limitações precisam estar explícitas. O artefato contém o relatório normalizado, sem chave, prompt ou resposta bruta do provedor. Compartilhe o resumo para revisão, nunca a chave.
 
@@ -443,17 +447,17 @@ Outro pacote exige `--data-dir CAMINHO` explícito, com `--target ID --reference
 
 Verificação local em 2026-10-16: **14 testes novos**, incluindo integração com provedor simulado, cálculos reais das fixtures, gravação do relatório, fallback, análise ausente, evidência sem trace, número inventado, chave ausente e pacote inválido. **100 testes passaram** no conjunto focado de smoke/investigação/fallback. Regressão sem os módulos HTTP bloqueados no sandbox: **759 passaram, 9 ignorados, 3 avisos existentes em 39,39 s**. Os testes usaram uma pasta temporária exclusiva em `backend/.local`, pois a pasta temporária padrão do sandbox negou criação. `--check-only` confirmou os sete arquivos e a ausência de chave. Essa pendência foi resolvida pelo teste real de 2026-10-17, registrado a seguir.
 
-**Validação real concluída em 2026-10-17:** `gemini-2.5-flash` retornou uma investigação aprovada (`passed: true`, `generated_by: gemini`), com oito chamadas bem-sucedidas e sem reparo ou fallback. Evidências e trace conferidos; NDVI, população, calagem, condição inicial e solo inspecionados. Relatório local: `backend/.local/w3-15/20261017T135442Z-c616c852-424a-45cb-91e6-769a46f56717.json`. O diagnóstico mínimo do endpoint também confirmou conexão, em 872 ms.
+**Validação real concluída em 2026-10-17:** `gemini-2.5-flash` retornou uma investigação aprovada (`passed: true`, `generated_by: gemini`), com oito chamadas bem-sucedidas e sem reparo ou contingência. Evidências e trace conferidos; NDVI, população, calagem, condição inicial e solo inspecionados. O diagnóstico mínimo do endpoint também confirmou conexão, em 872 ms.
 
-As tentativas iniciais identificaram redações numéricas inválidas e timeout. O prompt agora orienta a seleção de achados em `reference_findings`, renderizados pelos templates W3.13 sobre as evidências atuais e previamente validados. O Gemini organiza os achados e redige visão geral e recomendações; toda a resposta continua passando pelos mesmos validadores. Não houve alteração de cálculos ou flexibilização de validação. Novas gerações ainda podem exigir reparo ou fallback.
+As tentativas iniciais identificaram redações numéricas inválidas e timeout. O Gemini organiza os achados e redige a resposta executiva; toda a saída continua passando pelos validadores. Não houve alteração de cálculos ou flexibilização de validação. Uma geração pode exigir um reparo; uma segunda falha bloqueia a entrega.
 
-O `.env` local foi ajustado para `GEMINI_TIMEOUT_SECONDS=120`, preservando a chave. O padrão do código e de `.env.example` permanece 45 s; para reproduzir o teste, use 120 s. A chave e os relatórios continuam ignorados pelo Git. O teste de health foi isolado do `.env` para funcionar também em instalações com chave configurada.
+O padrão atual de `GEMINI_TIMEOUT_SECONDS` é 90 s. A chave e os relatórios continuam ignorados pelo Git. O teste de health é isolado do `.env` para funcionar também em instalações com chave configurada.
 
 Regressão completa, incluindo HTTP: **841 passaram, 9 ignorados, 3 avisos existentes em 41,40 s**. Depois do último ajuste textual do prompt: **100 testes focados de síntese, reparo e smoke passaram em 12,62 s**. Os nove testes ignorados dependem dos CSVs privados. W3.15 concluída; W4 não iniciada.
 
 ## Estado da investigação no frontend — W4.01
 
-`frontend/src/state.js` mantém o dataset, o resultado em `state.investigation` e o erro. `runInvestigation(execute)` recebe a operação assíncrona conectada à API na W4.02: exige READY e um dataset, muda imediatamente para INVESTIGATING e compartilha a mesma Promise entre chamadas repetidas. Uma resposta, inclusive fallback, conclui em COMPLETED; uma exceção síncrona ou rejeição conclui em ERROR. A troca de pacote durante a operação é bloqueada.
+`frontend/src/state.js` mantém o dataset, o resultado em `state.investigation` e o erro. `runInvestigation(execute)` recebe a operação assíncrona conectada à API na W4.02: exige READY e um dataset, muda imediatamente para INVESTIGATING e compartilha a mesma Promise entre chamadas repetidas. Somente uma resposta validada conclui em COMPLETED; uma exceção síncrona ou rejeição conclui em ERROR. A troca de pacote durante a operação é bloqueada.
 
 `startNewComparison()` faz COMPLETED → READY, limpa o resultado e mantém o mesmo dataset, sem upload. O reinício após erro segue ERROR → EMPTY e limpa o pacote.
 
@@ -463,7 +467,7 @@ Verificação de 2026-10-17: **35 testes Vitest passaram**, incluindo dez novos 
 
 Após importar o pacote, mantenha o backend em desenvolvimento para consultar a comparabilidade. Escolha os talhões e o período, escreva uma pergunta de 10 a 500 caracteres e clique em **Executar investigação**. O frontend envia JSON para `POST /api/investigations`, bloqueia os controles e a navegação e mostra progresso indeterminado. A lista textual descreve as etapas do processo; o endpoint síncrono não fornece o estágio atual.
 
-O sucesso abre o resultado com a origem Gemini ou fallback local. **Nova comparação** reutiliza o dataset. Erros HTTP, de rede ou de resposta inválida aparecem na própria tela; **Reiniciar pacote** retorna à importação sem recarregar a página. Dados demonstrativos só aparecem no fluxo sem upload. A confirmação inicial da W4.02 foi ampliada na W4.03 com resumo e visão de solo, descritos abaixo.
+O sucesso abre o resultado com a origem Gemini ou contingência. **Nova comparação** reutiliza o pacote. Erros HTTP, de rede ou de resposta inválida aparecem na própria tela; **Reiniciar pacote** retorna à importação sem recarregar a página. Não há dados analíticos sem upload. A confirmação inicial da W4.02 foi ampliada na W4.03 com resumo e visão de solo, descritos abaixo.
 
 Verificação de 2026-10-17: **57 testes Vitest passaram** (22 novos nesta tarefa), `pnpm build` e `git diff --check` aprovados. A navegação, os cliques repetidos, o fallback e o reinício após erro foram exercitados em happy-dom com API fake. Sem nova chamada ao Gemini, dependência ou alteração no backend.
 
@@ -473,7 +477,7 @@ A tela usa `report.overview` para apresentar título, resumo e força da evidên
 
 Logo após o resumo, a **Visão de solo** apresenta as evidências de escopo geral do dataset. Cada chamada mantém seus próprios cards de amostras, completude do recorte e textura válida. O seletor de métrica mostra mínimo, mediana, máximo, unidade e contagem válida; **Ver estatísticas detalhadas** abre a tabela com média, quartis e valores ausentes. Em **Conjunto 1 × Conjunto 2**, o seletor mostra pares válidos e delta mediano, com **Ver valores por amostra** para consultar os pares e deltas fornecidos pelo backend.
 
-Não há agregação entre chamadas com filtros diferentes nem cálculo analítico no navegador. Valores nulos aparecem como indisponíveis, e ferramentas/conjuntos ausentes não recebem dados demonstrativos. Os avisos deixam explícita a ausência de vínculo entre solo e talhão, coordenada, data ou profundidade, bem como a falta de referência para classificação agronômica. Os detalhes tabulares da visão geral são complementados pelos gráficos integrados na W4.06.
+Não há agregação entre chamadas com filtros diferentes nem cálculo analítico no navegador. Valores nulos aparecem como indisponíveis, e ferramentas ou conjuntos ausentes não recebem valores substitutos. As limitações completas ficam concentradas na aba **Limitações**; a visão de solo usa apenas uma indicação curta de escopo. Os detalhes tabulares da visão geral são complementados pelos gráficos integrados na W4.06.
 
 Verificação de 2026-10-17: **71 testes Vitest passaram** (14 novos), build Vite e `git diff --check` aprovados. Testes em happy-dom cobrem HTML malicioso, origens e forças, filtros separados, resultados parciais, nulos/zeros, seleção de métrica e preservação dos valores recebidos. Sem nova dependência, chamada ao Gemini ou alteração no backend. Próximo item: **W4.04 — achados e recomendações**.
 
@@ -489,13 +493,13 @@ Verificação de 2026-10-17: **85 testes Vitest passaram** (14 novos), build Vit
 
 As abas **Visão geral** e **Evidências**, introduzidas na W4.05, preservam a seleção de métricas da visão geral. Clique na aba ou use as setas, Home e End para navegar. A aba Evidências apresenta cada evidência na ordem recebida, com métrica, alvo, referência, diferença, unidade, quantidade de observações e arquivos fonte. Quando disponíveis, também mostra datas pareadas, amostras e linhas válidas/descartadas. A diferença de conformidade de aplicação é indicada em pontos percentuais.
 
-Solo mantém tabelas próprias de estatísticas por conjunto e detalhes pareados por amostra, com contagem válida e delta mediano, sem associar valores aos talhões. Nulos e valores ausentes aparecem como **Indisponível**, zeros reais permanecem zero e unidades desconhecidas são explícitas. Os valores são apenas formatados; não há recálculo, dados demonstrativos ou nova chamada à API ao trocar de aba.
+Solo mantém tabelas próprias de estatísticas por conjunto e detalhes pareados por amostra, com contagem válida e delta mediano, sem associar valores aos talhões. Nulos e valores ausentes aparecem como **Indisponível**, zeros reais permanecem zero e unidades desconhecidas são explícitas. Os valores são apenas formatados; não há recálculo nem nova chamada à API ao trocar de aba.
 
 Verificação de 2026-10-17: **93 testes Vitest passaram** (oito novos), build Vite e `git diff --check` aprovados. Cobertos valores nulos/zero, diferenças recebidas, unidades, contagens, fontes, solo, conteúdo malicioso e navegação por teclado e com API fake. Sem nova dependência, chamada ao Gemini ou alteração no backend. Próximo item: **W4.06 — gráficos reais**.
 
 ## Gráficos da investigação — W4.06
 
-Abra **Solo** ou use **Explorar gráficos de solo** na visão geral. Os seletores de evidência, família e métrica permitem examinar cada chamada de resumo separadamente; a comparação entre conjuntos tem seus próprios seletores. Distribuição mostra mínimo, quartis, mediana e máximo recebidos; comparação mostra pares e deltas; textura apresenta somente as amostras e percentuais normalizados pelo backend. Resultados parciais não são preenchidos com outras chamadas ou dados demonstrativos.
+Abra **Solo** ou use **Explorar gráficos de solo** na visão geral. Os seletores de evidência, família e métrica permitem examinar cada chamada de resumo separadamente; a comparação entre conjuntos tem seus próprios seletores. Distribuição mostra mínimo, quartis, mediana e máximo recebidos; comparação mostra pares e deltas; textura apresenta somente as amostras e percentuais normalizados pelo backend. Resultados parciais não são preenchidos com valores substitutos.
 
 Em **Gráfico NDVI**, a série preserva pontos, ordem e gaps de `chart_data.ndvi`, com datas em dia/mês/ano, sem deslocamento de fuso. Quando a análise não foi retornada, aparece uma mensagem de indisponibilidade. Cada visualização inclui unidade, quantidade válida, fonte, tooltip e tabela acessível. Mapa, tendência temporal e perfil de profundidade do solo permanecem indisponíveis por ausência dos campos necessários.
 

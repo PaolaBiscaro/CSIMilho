@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app.config import get_settings
+from app.analytics.contracts import ComparisonArgs, SingleFieldArgs
 from app.data.loader import EXPECTED_FILE_NAMES
 from app.harness.registry import TOOLS
 from app.main import app
@@ -58,8 +59,10 @@ def real_results(real_package):
                 results = {}
                 for name in TOOLS:
                     arguments = {"dataset_id": validation["dataset_id"]}
-                    if "soil" not in name:
+                    if issubclass(TOOLS[name].parameters, ComparisonArgs):
                         arguments.update(target_field_id=TARGET, reference_field_id=REFERENCE)
+                    elif issubclass(TOOLS[name].parameters, SingleFieldArgs):
+                        arguments.update(field_id=TARGET)
                     response = client.post("/api/diagnostics/tools", json={"tool": name, "arguments": arguments})
                     assert response.status_code == 200, response.text
                     results[name] = response.json()
@@ -99,7 +102,11 @@ def test_real_comparability(real_results):
     result = real_results[1]["validate_comparison"]
     assert result["allowed"] is True and result["score"] == 4
     assert [criterion["satisfied"] for criterion in result["criteria"]] == [True, True, True, True, False]
-    assert set(result["available_analyses"]) == set(TOOLS) - {"validate_comparison"}
+    assert set(result["available_analyses"]) == {
+        "compare_ndvi", "test_paired_ndvi_difference", "check_initial_condition",
+        "compare_population", "application_compliance", "summarize_soil_analysis",
+        "compare_soil_measurement_groups", "test_soil_measurement_groups",
+    }
 
 
 def test_real_ndvi_paired_dates_and_gap(real_results, raw_reference):

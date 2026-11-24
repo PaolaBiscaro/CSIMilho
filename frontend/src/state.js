@@ -12,6 +12,7 @@ export const state = {
   status: AppState.EMPTY,
   dataset: null,
   investigation: null,
+  conversation: [],
   error: null,
 }
 
@@ -24,7 +25,7 @@ const ALLOWED_TRANSITIONS = Object.freeze({
   [AppState.READY]: [AppState.INVESTIGATING],
   [AppState.INVESTIGATING]: [AppState.COMPLETED, AppState.ERROR],
   [AppState.COMPLETED]: [AppState.READY],
-  [AppState.ERROR]: [AppState.EMPTY],
+  [AppState.ERROR]: [AppState.EMPTY, AppState.READY],
 })
 
 export function transitionTo(nextStatus) {
@@ -40,6 +41,7 @@ export function setDataset(dataset) {
   }
   state.dataset = dataset
   state.investigation = null
+  state.conversation = []
   state.error = null
 }
 
@@ -65,6 +67,7 @@ export function runInvestigation(execute) {
     (result) => {
       if (activeInvestigation === operation) {
         state.investigation = result
+        state.conversation.push(result)
         transitionTo(AppState.COMPLETED)
       }
       return result
@@ -98,7 +101,16 @@ export function resetAfterError() {
   transitionTo(AppState.EMPTY)
   state.dataset = null
   state.investigation = null
+  state.conversation = []
   state.error = null
+}
+
+export function recoverAfterInvestigationError() {
+  if (state.status !== AppState.ERROR || activeInvestigation || !state.dataset?.dataset_id) return false
+  transitionTo(AppState.READY)
+  state.investigation = null
+  state.error = null
+  return true
 }
 
 export function resetStateForTests() {
@@ -106,5 +118,6 @@ export function resetStateForTests() {
   state.status = AppState.EMPTY
   state.dataset = null
   state.investigation = null
+  state.conversation = []
   state.error = null
 }

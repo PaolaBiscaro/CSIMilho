@@ -6,10 +6,8 @@ vi.mock('chart.js/auto', () => ({ default: class {
   constructor(canvas, config) { this.canvas = canvas; this.config = config; this.destroy = vi.fn(); instances.push(this) }
 } }))
 
-import fixture from '../src/mocks/analytics-preview.json'
+import fixture from './fixtures/analytics-result.json'
 import { createChartController, distributionConfig, ndviConfig, pairedSoilConfig, textureConfig } from '../src/charts/analytics-charts.js'
-import { createSoilPanel } from '../src/ui/analytical-panels.js'
-import { createInvestigationPreview } from '../src/ui/investigation-preview.js'
 
 const colors = ['primary', 'soft', 'secondary', 'dark']
 const ndvi = fixture.comparisons['103144:103145'].ndvi
@@ -66,54 +64,4 @@ describe('chart lifecycle and accessible UI', () => {
     expect(host.querySelectorAll('canvas')).toHaveLength(0)
     expect(host.textContent).toContain('Não há observações suficientes')
   })
-  it('filters soil by family/metric and preserves one instance per chart', () => {
-    const panel = createSoilPanel(fixture.soil_summary, fixture.soil_summary_2, fixture.soil_groups)
-    document.body.append(panel)
-    expect(panel.querySelectorAll('canvas')).toHaveLength(3)
-    expect(panel.querySelectorAll('table')).toHaveLength(3)
-    expect(panel.textContent).toContain('unidade não documentada')
-    const initial = [...instances]
-    const family = panel.querySelector('[name="soil-family"]')
-    family.value = 'micronutrientes'
-    family.dispatchEvent(new Event('change'))
-    expect(initial.every((chart) => chart.destroy.mock.calls.length === 1)).toBe(true)
-    const metric = panel.querySelector('[name="soil-metric"]')
-    expect([...metric.options].map((option) => option.value)).toEqual(['B', 'ZN', 'MN', 'CU', 'FE'])
-    expect(panel.querySelectorAll('canvas').length).toBeLessThanOrEqual(3)
-    const group = panel.querySelector('[name="soil-group"]')
-    group.value = 'group_2'
-    group.dispatchEvent(new Event('change'))
-    expect(metric.disabled).toBe(true)
-    expect(panel.querySelector('.empty-chart')).not.toBeNull()
-    panel.dispose()
-    expect(instances.every((chart) => chart.destroy.mock.calls.length === 1)).toBe(true)
-  })
-  it('cleans up chart instances on tab change and navigation', () => {
-    const view = createInvestigationPreview(() => {})
-    document.body.append(view)
-    const initial = [...instances]
-    view.querySelector('[data-tab="chart"]').click()
-    expect(initial.every((chart) => chart.destroy.mock.calls.length === 1)).toBe(true)
-    expect(view.querySelectorAll('canvas')).toHaveLength(1)
-    expect(view.querySelector('table').textContent).toContain('2024-12-01')
-    view.querySelector('[data-tab="soil"]').click()
-    expect(view.querySelectorAll('canvas')).toHaveLength(3)
-    view.dispose()
-    expect(instances.every((chart) => chart.destroy.mock.calls.length === 1)).toBe(true)
-    expect(view.textContent).toContain('dados demonstrativos locais')
-    expect(view.textContent).not.toContain('Visão geral do Gemini')
-  })
-})
-
-it('preserves six preview tabs and keyboard navigation while leaving the report unavailable', () => {
-  const view = createInvestigationPreview(() => {})
-  document.body.append(view)
-  expect([...view.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)).toEqual(['Visão geral', 'Solo', 'Evidências', 'Gráfico NDVI', 'Métodos', 'Limitações'])
-  const soil = view.querySelector('[data-tab="soil"]')
-  soil.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }))
-  expect(view.querySelector('[data-tab="overview"]').getAttribute('aria-selected')).toBe('true')
-  expect(view.querySelector('[role="tabpanel"]').textContent).toContain('Resumo demonstrativo')
-  expect([...view.querySelectorAll('button')].find((button) => button.textContent === 'Relatório indisponível na prévia').disabled).toBe(true)
-  expect(view.querySelectorAll('canvas')).toHaveLength(0)
-  view.dispose()
 })

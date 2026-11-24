@@ -1,9 +1,13 @@
-"""Synchronous investigation API; errors expose only local safe messages."""
+"""Investigation API with JSON compatibility and safe live progress events."""
 
+import json
+from queue import Queue
+from threading import Thread
+from typing import Iterator
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 from app.config import get_settings
 from app.data.session_store import DatasetNotFoundError, dataset_store
@@ -15,6 +19,50 @@ from app.reports.store import report_store
 
 
 router = APIRouter(prefix="/api/investigations", tags=["investigations"])
+
+
+def _safe_error(error: Exception) -> tuple[int, dict[str, str]]:
+    if isinstance(error, DatasetNotFoundError):
+        return 404, {"code": "dataset_not_found", "message": "Dataset não encontrado na sessão."}
+    if isinstance(error, ToolCallValidationError):
+        return (404 if error.code == "dataset_not_found" else 422), {"code": error.code, "message": str(error)}
+    if isinstance(error, InvestigationError):
+        return error.status_code, error.error.model_dump()
+    return 503, {
+        "code": "investigation_failed",
+        "message": "Não foi possível produzir um relatório válido com as evidências disponíveis.",
+    }
+
+
+def _sse(event: str, payload: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False, allow_nan=False)}\n\n"
+
+
+def _investigation_stream(request: InvestigationRequest) -> Iterator[str]:
+    events: Queue[tuple[str, dict] | None] = Queue()
+
+    def publish(payload: dict[str, str]) -> None:
+        events.put(("progress", payload))
+
+    def execute() -> None:
+        try:
+            result = run_investigation(
+                request, settings=get_settings(), store=dataset_store, progress_sink=publish,
+            )
+            report_store.save(result)
+            events.put(("result", result.model_dump(mode="json")))
+        except Exception as error:
+            status, detail = _safe_error(error)
+            events.put(("error", {"status": status, **detail}))
+        finally:
+            events.put(None)
+
+    Thread(target=execute, name="farmlab-investigation", daemon=True).start()
+    while True:
+        item = events.get()
+        if item is None:
+            return
+        yield _sse(*item)
 
 
 @router.post("", response_model=InvestigationResponse, responses={
@@ -40,6 +88,20 @@ def investigate(request: InvestigationRequest) -> InvestigationResponse:
         raise HTTPException(status_code=503, detail={
             "code": "investigation_failed", "message": "Não foi possível produzir um relatório válido com as evidências disponíveis.",
         }) from None
+
+
+@router.post("/stream", response_class=StreamingResponse, responses={
+    200: {"description": "Eventos de progresso e resultado final em Server-Sent Events."},
+})
+def investigate_stream(request: InvestigationRequest) -> StreamingResponse:
+    return StreamingResponse(
+        _investigation_stream(request), media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store",
+            "X-Accel-Buffering": "no",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.get("/{investigation_id}/report", response_class=HTMLResponse, responses={

@@ -9,7 +9,7 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
-from app.analytics.contracts import SoilSummaryArgs
+from app.analytics.contracts import ComparisonArgs, SingleFieldArgs, SoilSummaryArgs
 from app.analytics.evidence import EvidenceIdGenerator
 from app.data.session_store import SessionStore
 from app.harness.evidence_schema import Evidence as BaseEvidence
@@ -45,7 +45,8 @@ def report_payload():
         limitations=[dict(title="Sem causalidade", explanation="A comparação é observacional.",
                           rule_id="observational_comparison")],
         recommendations=[dict(action="Conferir registros de campo", reason="Investigar a diferença observada.",
-                              evidence_ids=["EV-NDVI-001"])],
+                              evidence_ids=["EV-NDVI-001"], availability="continue_now",
+                              suggested_question="Quais registros coincidem com a diferença observada?")],
     )
 
 
@@ -100,12 +101,18 @@ def test_request_rejects_invalid_values(request_payload, field, value):
         InvestigationRequest.model_validate(request_payload)
 
 
-@pytest.mark.parametrize("field", ["dataset_id", "target_field_id", "reference_field_id", "period", "question"])
+@pytest.mark.parametrize("field", ["dataset_id", "target_field_id", "period", "question"])
 def test_request_requires_all_input_fields(request_payload, field):
     del request_payload[field]
     with pytest.raises(ValidationError) as caught:
         InvestigationRequest.model_validate(request_payload)
     assert any(error["loc"] == (field,) and error["type"] == "missing" for error in caught.value.errors())
+
+
+def test_comparison_request_requires_reference_field(request_payload):
+    del request_payload["reference_field_id"]
+    with pytest.raises(ValidationError, match="talhão de referência"):
+        InvestigationRequest.model_validate(request_payload)
 
 
 @pytest.mark.parametrize("strength", ["weak", "moderate", "strong"])
@@ -121,7 +128,16 @@ def test_final_response_origin_and_empty_charts(response_payload, origin):
     response_payload["generated_by"] = origin
     result = InvestigationResponse.model_validate_json(json.dumps(response_payload))
     assert result.generated_by is ReportOrigin(origin)
-    assert result.chart_data.model_dump() == dict(ndvi=None, soil_summaries=[], soil_groups=[])
+    assert result.chart_data.model_dump() == dict(
+        ndvi=None,
+        field_ndvi=None,
+        ndvi_tests=[],
+        ndvi_changes=[],
+        operation_ndvi=[],
+        soil_summaries=[],
+        soil_groups=[],
+        soil_tests=[],
+    )
     assert InvestigationResponse.model_validate_json(result.model_dump_json()) == result
 
 
@@ -181,7 +197,14 @@ def test_final_response_rejects_unknown_origin_status_and_placeholders(response_
 @pytest.mark.parametrize("tool", list(TOOLS))
 def test_trace_arguments_match_registry_contract_and_round_trip(call_payload, tool):
     call_payload["tool"] = tool
-    if "soil" in tool:
+    parameter_model = TOOLS[tool].parameters
+    if issubclass(parameter_model, ComparisonArgs):
+        pass
+    elif issubclass(parameter_model, SingleFieldArgs):
+        call_payload["arguments"] = dict(
+            dataset_id=DATASET_ID, field_id="103144", period="full_season"
+        )
+    else:
         call_payload["arguments"] = dict(dataset_id=DATASET_ID)
     call = ToolCallTrace.model_validate(call_payload)
     assert type(call.arguments) is TOOLS[tool].parameters
@@ -268,30 +291,68 @@ def test_trace_does_not_accept_extra_arguments_from_another_tool(call_payload, k
 def test_all_tool_outputs_survive_final_json_with_charts_and_package_warnings(
     analytical_dataset, response_payload, report_payload, call_payload,
 ):
+    from datetime import date
+    import pandas as pd
+
+    analytical_dataset.ndvi_observations = pd.concat(
+        [
+            analytical_dataset.ndvi_observations,
+            pd.DataFrame([
+                dict(field_id="103144", date=date(2025, 1, 3), ndvi=.6, valid_pixels=10),
+                dict(field_id="103145", date=date(2025, 1, 3), ndvi=.7, valid_pixels=10),
+            ]),
+        ],
+        ignore_index=True,
+    )
+    analytical_dataset.soil_samples = pd.DataFrame([
+        dict(
+            sample_id=str(index), scope="dataset",
+            group_1={"MO": float(index)}, group_2={"MO": float(index + 1)},
+        )
+        for index in range(1, 7)
+    ])
     store = SessionStore()
     store.save(analytical_dataset, dataset_id=UUID(DATASET_ID))
     ids = EvidenceIdGenerator()
-    outputs, calls = [], []
+    outputs, calls, outputs_by_name = [], [], {}
     for name in TOOLS:
-        args = dict(dataset_id=DATASET_ID) if "soil" in name else call_payload["arguments"]
+        parameter_model = TOOLS[name].parameters
+        if issubclass(parameter_model, ComparisonArgs):
+            args = call_payload["arguments"]
+        elif issubclass(parameter_model, SingleFieldArgs):
+            args = dict(dataset_id=DATASET_ID, field_id="103144", period="full_season")
+        else:
+            args = dict(dataset_id=DATASET_ID)
+            if name == "test_soil_measurement_groups":
+                args["metrics"] = ["MO"]
         output = execute_tool(name, args, store=store, ids=ids)
         outputs.append(output)
+        outputs_by_name[name] = output
         calls.append(ToolCallTrace.model_validate({
             **call_payload, "sequence": len(calls) + 1, "tool": name, "arguments": args,
             "result_evidence_ids": [output.evidence_id], "source_files": output.source_files,
         }))
-    # The eighth allowed call can supply the second soil measurement group.
+    # An additional call supplies the second soil measurement group.
     args = dict(dataset_id=DATASET_ID, measurement_group="group_2")
     group_2 = execute_tool("summarize_soil_analysis", args, store=store, ids=ids)
     outputs.append(group_2)
     calls.append(ToolCallTrace.model_validate({
-        **call_payload, "sequence": 8, "tool": "summarize_soil_analysis", "arguments": args,
+        **call_payload, "sequence": len(calls) + 1, "tool": "summarize_soil_analysis", "arguments": args,
         "result_evidence_ids": [group_2.evidence_id], "source_files": group_2.source_files,
     }))
-    ndvi = outputs[1]
+    ndvi = outputs_by_name["compare_ndvi"]
     response_payload.update(
         report=report_payload, evidence=outputs,
-        chart_data=dict(ndvi=ndvi, soil_summaries=[outputs[5], group_2], soil_groups=[outputs[6]]),
+        chart_data=dict(
+            ndvi=ndvi,
+            field_ndvi=outputs_by_name["analyze_field_ndvi"],
+            ndvi_tests=[outputs_by_name["test_paired_ndvi_difference"]],
+            ndvi_changes=[outputs_by_name["detect_field_ndvi_changes"]],
+            operation_ndvi=[outputs_by_name["associate_field_operations_ndvi"]],
+            soil_summaries=[outputs_by_name["summarize_soil_analysis"], group_2],
+            soil_groups=[outputs_by_name["compare_soil_measurement_groups"]],
+            soil_tests=[outputs_by_name["test_soil_measurement_groups"]],
+        ),
         warnings=[dict(code="soil_units_unknown", message="Unidades não documentadas.", file="soil_analysis.csv")],
     )
     response_payload["trace"]["calls"] = calls
@@ -303,15 +364,16 @@ def test_all_tool_outputs_survive_final_json_with_charts_and_package_warnings(
         item.model_dump(mode="json") for item in outputs
     ]
     assert restored.chart_data.ndvi == ndvi
-    assert restored.chart_data.soil_summaries == [outputs[5], group_2]
-    assert restored.chart_data.soil_groups == [outputs[6]]
+    assert restored.chart_data.soil_summaries == [outputs_by_name["summarize_soil_analysis"], group_2]
+    assert restored.chart_data.soil_groups == [outputs_by_name["compare_soil_measurement_groups"]]
     assert restored.chart_data.soil_summaries[0].unit is None
     assert restored.warnings[0].file == "soil_analysis.csv"
     assert restored.trace.calls == calls
     assert set(ToolName) == set(TOOLS)
     # A new field nested inside specialized evidence must not be dropped.
     damaged = json.loads(encoded)
-    damaged["evidence"][1]["series"][0]["invented"] = 1
+    ndvi_index = next(index for index, item in enumerate(outputs) if item is ndvi)
+    damaged["evidence"][ndvi_index]["series"][0]["invented"] = 1
     with pytest.raises(ValidationError):
         InvestigationResponse.model_validate(damaged)
     damaged = json.loads(encoded)

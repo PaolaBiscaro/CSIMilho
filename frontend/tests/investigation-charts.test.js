@@ -4,9 +4,10 @@ const instances = vi.hoisted(() => [])
 vi.mock('chart.js/auto', () => ({ default: class {
   constructor(canvas, config) { this.canvas = canvas; this.config = config; this.destroy = vi.fn(); instances.push(this) }
 } }))
-import fixture from '../src/mocks/analytics-preview.json'
+import fixture from './fixtures/analytics-result.json'
 import { createInvestigationNdviPanel, createInvestigationSoilPanel } from '../src/ui/investigation-charts.js'
 import { createInvestigationResult } from '../src/ui/results.js'
+import { investigationEnvelope } from './fixtures/chat-result.js'
 import { state, resetStateForTests } from '../src/state.js'
 import { distributionConfig } from '../src/charts/analytics-charts.js'
 
@@ -58,7 +59,8 @@ it('preserves soil statistics, pairs and texture with units, counts, sources and
     expect(footer).toMatch(/amostras válidas|pares válidos/)
   }
   expect(panel.textContent).toContain('unidade não documentada')
-  expect(panel.textContent).toContain('Mapa, tendência temporal e perfil de profundidade indisponíveis')
+  expect(panel.textContent).toContain('Amostras do pacote importado')
+  expect(panel.textContent).not.toContain('perfil de profundidade indisponíveis')
   expect(JSON.stringify(source)).toBe(snapshot)
   panel.dispose()
   expect(instances.every((chart) => chart.destroy.mock.calls.length === 1)).toBe(true)
@@ -117,29 +119,22 @@ it('shows missing and empty analyses without fabricated plots or null-to-zero qu
   ndvi.dispose(); soil.dispose(); empty.dispose()
 })
 
-it('disposes charts on tab switches, repeated selection, overview shortcut and navigation', () => {
+it('disposes and restores answer charts when switching between the two result tabs', () => {
   const chartData = data()
-  state.investigation = { generated_by: 'gemini', warnings: [], chart_data: chartData,
-    evidence: [chartData.ndvi, ...chartData.soil_summaries, ...chartData.soil_groups],
-    report: { overview: { headline: 'Resultado', summary: 'Resumo.', evidence_strength: 'weak' }, findings: [], recommendations: [] } }
+  state.investigation = investigationEnvelope()
+  state.investigation.response.chart_data = chartData
+  state.investigation.response.evidence = [chartData.ndvi, ...chartData.soil_summaries, ...chartData.soil_groups]
   const view = createInvestigationResult(() => {})
   document.body.append(view)
-  const soilTab = view.querySelector('[data-tab="soil"]')
-  const chartTab = view.querySelector('[data-tab="chart"]')
-  soilTab.click()
-  expect(instances).toHaveLength(3)
-  soilTab.click()
-  expect(instances).toHaveLength(3)
-  chartTab.click()
-  expect(instances.slice(0, 3).every((chart) => chart.destroy.mock.calls.length === 1)).toBe(true)
-  expect(view.querySelectorAll('canvas')).toHaveLength(1)
-  view.querySelector('[data-tab="overview"]').click()
-  expect(instances[3].destroy).toHaveBeenCalledOnce()
+  const answerTab = view.querySelector('[data-tab="answer"]')
+  const technicalTab = view.querySelector('[data-tab="technical"]')
+  expect(instances).toHaveLength(4)
+  technicalTab.click()
+  expect(instances.every((chart) => chart.destroy.mock.calls.length === 1)).toBe(true)
   expect(view.querySelectorAll('canvas')).toHaveLength(0)
-  const shortcut = [...view.querySelectorAll('button')].find((node) => node.textContent === 'Explorar gráficos de solo')
-  shortcut.click()
-  expect(document.activeElement).toBe(soilTab)
-  expect(view.querySelectorAll('canvas')).toHaveLength(3)
+  answerTab.click()
+  expect(view.querySelectorAll('canvas')).toHaveLength(4)
+  expect(instances).toHaveLength(8)
   view.dispose()
   view.dispose()
   expect(instances.every((chart) => chart.destroy.mock.calls.length === 1)).toBe(true)

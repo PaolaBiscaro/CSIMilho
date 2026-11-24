@@ -135,7 +135,7 @@ export function createUploadView() {
         '',
         `${soil.sample_count} amostra(s) válida(s) · ${groupLabels.join(' e ') || 'nenhum conjunto disponível'}`,
       ),
-      element('small', '', 'As amostras não são associadas a talhões, datas ou profundidades.'),
+      element('small', '', 'Escopo: pacote importado, sem associação aos talhões.'),
     )
     for (const field of payload.fields ?? []) {
       const item = element('li', 'field-card')

@@ -2,11 +2,15 @@ import { element, formatDate, formatValue } from './dom.js'
 
 const TOOLS = {
   validate_comparison: 'Validar comparabilidade', compare_ndvi: 'Comparar NDVI',
+  analyze_field_ndvi: 'Analisar trajetória NDVI do talhão',
+  summarize_field_population: 'Resumir população do talhão',
+  summarize_field_application: 'Resumir aplicação do talhão',
   check_initial_condition: 'Verificar condição inicial', compare_population: 'Comparar população',
   application_compliance: 'Verificar conformidade de aplicação', summarize_soil_analysis: 'Resumir análise de solo',
   compare_soil_measurement_groups: 'Comparar conjuntos de solo',
 }
 const FIELD_TOOLS = new Set(['validate_comparison', 'compare_ndvi', 'check_initial_condition', 'compare_population', 'application_compliance'])
+const SINGLE_FIELD_TOOLS = new Set(['analyze_field_ndvi', 'summarize_field_population', 'summarize_field_application'])
 const STATUS = { success: 'Concluída', error: 'Falha' }
 const ERRORS = {
   analysis_unavailable: 'Dados insuficientes para executar a análise.',
@@ -53,8 +57,13 @@ function publicArguments(call) {
     if (call.tool === 'application_compliance') items.push(['Operação', text(args.operation)])
     return items
   }
+  if (SINGLE_FIELD_TOOLS.has(call.tool)) {
+    const items = [['Talhão', text(args.field_id)], ['Período', period(args.period)]]
+    if (call.tool === 'summarize_field_application') items.push(['Operação', text(args.operation)])
+    return items
+  }
   if (call.tool === 'summarize_soil_analysis' || call.tool === 'compare_soil_measurement_groups') {
-    const items = [['Escopo', 'Dataset, sem vínculo com talhão'],
+    const items = [['Escopo', 'Pacote importado, sem associação aos talhões'],
       ['Métricas', args.metrics === null ? 'Todas as métricas disponíveis' : strings(args.metrics).join(', ') || 'Indisponível']]
     if (call.tool === 'summarize_soil_analysis') items.push(['Conjunto', lookup({ group_1: 'Conjunto 1', group_2: 'Conjunto 2' }, args.measurement_group)])
     return items
@@ -80,10 +89,11 @@ export function createMethodsPanel(result) {
   const trace = result.trace ?? {}
   const fallback = result.generated_by === 'deterministic_fallback'
   panel.append(element('h2', '', 'Métodos'), descriptionList([
-    ['Origem do relatório', fallback ? 'Fallback determinístico · gerado localmente' : result.generated_by === 'gemini' ? 'Gemini' : 'Indisponível'],
+    ['Origem do relatório', fallback ? 'Geração de contingência' : result.generated_by === 'gemini' ? 'Gemini' : 'Indisponível'],
     ['Modelo configurado', text(trace.model)], ['Início da investigação', timestamp(trace.created_at)],
   ]))
-  if (fallback) panel.append(element('p', 'report-notice', 'O relatório foi produzido por templates locais. O modelo configurado não identifica o autor deste relatório.'))
+  if (fallback) panel.append(element('p', 'report-notice',
+    'O Gemini não estava disponível; o relatório foi elaborado com as evidências calculadas.'))
   const calls = Array.isArray(trace.calls) ? trace.calls : []
   if (!calls.length) panel.append(element('p', 'status-message', 'Nenhuma execução de ferramenta registrada neste resultado.'))
   const evidenceById = new Map((result.evidence ?? []).map((item) => [item.evidence_id, item]))

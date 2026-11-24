@@ -92,6 +92,8 @@ def _is_noncausal_use(clause: str, match: re.Match, family: str) -> bool:
         # Noun uses do not assert a known cause: "a causa é desconhecida".
         if re.match(r"\s+(?:e|permanece)\s+(?:desconhecida|incerta|indeterminada)\b", suffix):
             return True
+        if re.search(r"\bnao\s+(?:determina|identifica|estabelece)\s+(?:a|uma|sua)\s+$", prefix):
+            return True
         if re.search(r"\b(?:nao conhecemos|nao sabemos|nao e possivel determinar|nao e possivel identificar|investigar|identificar|verificar)\s+(?:a|uma)\s+$", prefix):
             return True
     if family == "levar a" and re.match(
@@ -108,15 +110,8 @@ def _is_noncausal_use(clause: str, match: re.Match, family: str) -> bool:
     return False
 
 
-def validate_report_language(report: InvestigationReport) -> InvestigationReport:
-    """Check every narrative field and return safe located errors for repair."""
-    report = InvestigationReport.model_validate(report.model_dump())
-    fields = [("overview.headline", report.overview.headline), ("overview.summary", report.overview.summary)]
-    for section, names in (("findings", ("title", "explanation")),
-                           ("limitations", ("title", "explanation")),
-                           ("recommendations", ("action", "reason"))):
-        for index, item in enumerate(getattr(report, section)):
-            fields.extend((f"{section}[{index}].{name}", getattr(item, name)) for name in names)
+def validate_narrative_fields(fields: list[tuple[str, str]]) -> None:
+    """Validate located narrative fields without depending on a report version."""
     issues = []
     for location, text in fields:
         # Citations are metadata, not assertions or negation cues.
@@ -135,4 +130,18 @@ def validate_report_language(report: InvestigationReport) -> InvestigationReport
                         issues.append(issue)
     if issues:
         raise ReportLanguageError(issues)
+
+
+def validate_report_language(report: InvestigationReport) -> InvestigationReport:
+    """Check every narrative field and return safe located errors for repair."""
+    report = InvestigationReport.model_validate(report.model_dump())
+    fields = [("overview.headline", report.overview.headline), ("overview.summary", report.overview.summary)]
+    for section, names in (("findings", ("title", "explanation")),
+                           ("limitations", ("title", "explanation")),
+                           ("recommendations", ("action", "reason"))):
+        for index, item in enumerate(getattr(report, section)):
+            fields.extend((f"{section}[{index}].{name}", getattr(item, name)) for name in names)
+            if section == "recommendations" and item.suggested_question:
+                fields.append((f"{section}[{index}].suggested_question", item.suggested_question))
+    validate_narrative_fields(fields)
     return report

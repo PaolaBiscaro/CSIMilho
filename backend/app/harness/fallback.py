@@ -11,8 +11,10 @@ from pydantic import Field, TypeAdapter, ValidationError
 
 from app.analytics.contracts import (
     ApplicationEvidence, ComparisonEvidence, InitialEvidence, NdviEvidence,
+    FieldApplicationEvidence, FieldNdviEvidence, FieldPopulationEvidence,
     PopulationEvidence, SoilGroupsEvidence, SoilSummaryEvidence,
 )
+from app.analytics.capabilities import capability_gap_for_code
 from app.data.contracts import StrictModel, ValidationIssue
 from app.harness.language_validation import validate_report_language
 from app.harness.report_validation import required_limitations, validate_report_evidence
@@ -38,6 +40,7 @@ class FallbackError(ValueError):
         super().__init__({
             "invalid_fallback_input": "As evidências do fallback são inválidas ou inconsistentes.",
             "comparison_required": "O fallback exige evidência de comparabilidade do par.",
+            "scope_evidence_required": "O fallback exige evidência do talhão ou da comparação.",
             "invalid_comparison": "O par selecionado não permite esta comparação.",
         }[code])
 
@@ -71,22 +74,30 @@ def _number(value: float, places: int = 6) -> str:
 
 
 def _order(item: AnalyticalEvidence) -> tuple:
-    # No inferred causal importance: stable presentation order, critical initial
-    # differences first, soil before field signals and CALAGEM before other operations.
+    # Executive order: scope first, then the signals that answer the question;
+    # dataset-wide soil context comes after field-level evidence.
     if isinstance(item, ComparisonEvidence):
         rank, detail = 0, ""
+    elif isinstance(item, FieldNdviEvidence):
+        rank, detail = 1, ""
+    elif isinstance(item, FieldPopulationEvidence):
+        rank, detail = 2, ""
+    elif isinstance(item, FieldApplicationEvidence):
+        rank, detail = 3, item.operation
     elif isinstance(item, InitialEvidence) and item.different is True:
         rank, detail = 1, ""
-    elif isinstance(item, SoilSummaryEvidence):
-        rank, detail = 2, item.measurement_group
-    elif isinstance(item, SoilGroupsEvidence):
-        rank, detail = 3, ""
     elif isinstance(item, NdviEvidence):
+        rank, detail = 2, ""
+    elif isinstance(item, ApplicationEvidence):
+        rank, detail = 3, (item.operation.strip().upper() != "CALAGEM", item.operation)
+    elif isinstance(item, PopulationEvidence):
         rank, detail = 4, ""
     elif isinstance(item, InitialEvidence):
         rank, detail = 5, ""
-    elif isinstance(item, ApplicationEvidence):
-        rank, detail = 6, (item.operation.strip().upper() != "CALAGEM", item.operation)
+    elif isinstance(item, SoilSummaryEvidence):
+        rank, detail = 6, item.measurement_group
+    elif isinstance(item, SoilGroupsEvidence):
+        rank, detail = 7, ""
     else:
         rank, detail = 7, ""
     return rank, detail, item.evidence_id
@@ -96,6 +107,23 @@ def _finding(item: AnalyticalEvidence) -> ReportFinding:
     if isinstance(item, ComparisonEvidence):
         title = "Comparabilidade do par"
         text = f"O par permite comparação observacional, com {item.score} critérios satisfeitos."
+    elif isinstance(item, FieldNdviEvidence):
+        title = "Comportamento temporal do NDVI"
+        text = (f"NDVI médio do talhão: {_number(item.mean_ndvi)}. "
+                f"NDVI mínimo: {_number(item.min_ndvi)}. NDVI máximo: {_number(item.max_ndvi)}. "
+                f"Variação entre a primeira e a última observação: {_number(item.total_change)}. "
+                f"Foram {item.observations} observações e {len(item.abrupt_changes)} mudanças bruscas pela regra operacional. "
+                "A regra sinaliza variações adjacentes para investigação e não identifica a origem.")
+    elif isinstance(item, FieldPopulationEvidence):
+        title = "População registrada no talhão"
+        text = (f"População ponderada por área: {_number(item.population_per_ha, 2)} plantas/ha. "
+                f"Foram {item.rows.valid} registros válidos e {item.rows.discarded} registros descartados.")
+    elif isinstance(item, FieldApplicationEvidence):
+        title = "Execução da aplicação no talhão"
+        text = (f"Conformidade da aplicação: {_number(item.compliance_percent, 2)}%. "
+                f"Dose aplicada: {_number(item.applied_dose, 2)} kg/ha. "
+                f"Dose configurada: {_number(item.configured_dose, 2)} kg/ha. "
+                "A conformidade descreve os registros e não avalia adequação agronômica.")
     elif isinstance(item, InitialEvidence):
         title = "Condição anterior ao plantio"
         if not item.available:
@@ -106,11 +134,15 @@ def _finding(item: AnalyticalEvidence) -> ReportFinding:
             text += ("Há diferença inicial segundo a heurística operacional; essa condição limita a interpretação do manejo."
                      if item.different else "A heurística operacional não sinaliza diferença inicial; isso não demonstra equivalência entre os talhões.")
     elif isinstance(item, NdviEvidence):
-        title = "Comparação observacional de NDVI"
-        text = (f"NDVI médio do alvo: {_number(item.target_mean)}; "
-                f"NDVI médio da referência: {_number(item.reference_mean)}; "
-                f"gap médio: {_number(item.mean_gap)}. Foram {item.paired_dates} datas pareadas. "
-                "O gap expressa alvo menos referência e não mede produtividade.")
+        title = "O vigor observado no recorte"
+        if item.mean_gap == 0:
+            insight = "O NDVI médio foi igual nos dois talhões."
+        elif item.mean_gap > 0:
+            insight = "O alvo apresentou NDVI médio maior que a referência no recorte."
+        else:
+            insight = "O alvo apresentou NDVI médio menor que a referência no recorte."
+        text = (f"{insight} Gap de NDVI (alvo menos referência): {_number(item.mean_gap)}. "
+                f"A leitura usa {item.paired_dates} datas pareadas e não mede produtividade.")
     elif isinstance(item, PopulationEvidence):
         title = "População de plantas"
         text = (f"População do alvo: {_number(item.target_population_per_ha, 2)} plantas/ha; "
@@ -121,48 +153,101 @@ def _finding(item: AnalyticalEvidence) -> ReportFinding:
         # Arbitrary operation labels are not trusted narrative. The linked
         # evidence retains the exact label for inspection.
         title = "Conformidade de calagem" if item.operation.strip().upper() == "CALAGEM" else "Conformidade de aplicação"
-        text = (f"Conformidade do alvo: {_number(item.target_compliance_percent, 2)}%; "
-                f"conformidade da referência: {_number(item.reference_compliance_percent, 2)}%. "
-                f"Dose aplicada do alvo: {_number(item.target_applied_dose, 2)} kg/ha; "
-                f"dose aplicada da referência: {_number(item.reference_applied_dose, 2)} kg/ha. "
-                "A conformidade compara a dose aplicada com a configurada, sem avaliar adequação agronômica.")
+        same_execution = (item.target_compliance_percent == item.reference_compliance_percent
+                          and item.target_applied_dose == item.reference_applied_dose)
+        lead = ("Os registros mostram execução semelhante nos dois talhões. " if same_execution else
+                "Os registros mostram diferenças de execução entre os talhões. ")
+        text = (lead + f"Conformidade do alvo: {_number(item.target_compliance_percent, 2)}%. "
+                f"Conformidade da referência: {_number(item.reference_compliance_percent, 2)}%. "
+                "Isso descreve a execução registrada e não avalia adequação agronômica.")
     else:
         summary = isinstance(item, SoilSummaryEvidence)
         title = ("Solo — Conjunto 1" if item.measurement_group == "group_1" else "Solo — Conjunto 2") if summary else "Solo — contraste entre conjuntos"
-        parts = [f"Contexto geral do dataset: {item.sample_count} amostras."]
-        if summary and item.completeness_percent is not None:
-            parts.append(f"Completude: {_number(item.completeness_percent, 2)}%.")
-        for metric in sorted(item.metrics, key=lambda metric: metric.name):
-            value = metric.mean if summary else metric.median_delta
-            if value is None or metric.valid_n == 0:
-                parts.append(f"{metric.name}: resultado indisponível por ausência de valores válidos.")
-                continue
-            label = "média" if summary else "mediana do delta"
-            # Current W2 soil metrics have no documented units. If units are
-            # provided later, preserve them rather than infer agronomic meaning.
-            unit = f" {metric.unit}" if metric.unit else " (unidade não documentada)"
-            parts.append(f"{metric.name}, {label}: {_number(value)}{unit}.")
-        if not summary:
-            parts.append("O delta representa Conjunto 2 menos Conjunto 1, sem interpretação de tempo ou profundidade.")
-        parts.append("O solo não está vinculado aos talhões da comparação.")
-        text = " ".join(parts)
+        if summary:
+            completeness = (f" A completude dos valores é {_number(item.completeness_percent, 2)}%."
+                            if item.completeness_percent is not None else "")
+            text = (f"O conjunto reúne {item.sample_count} amostras.{completeness} "
+                    "Sem unidades documentadas e sem vínculo com os talhões, os valores não permitem classificar a condição do solo nem explicar o vigor observado.")
+        else:
+            text = (f"Há {item.sample_count} amostras com contrastes registrados entre os conjuntos. "
+                    "Esses contrastes não representam mudança no tempo e, sem vínculo com os talhões, não explicam diferenças de vigor.")
     return ReportFinding(title=title, explanation=text, evidence_ids=[item.evidence_id])
 
 
 def _recommendations(evidence: list[AnalyticalEvidence]) -> list[ReportRecommendation]:
     groups = [
         ((ComparisonEvidence,), "Conferir a comparabilidade e os avisos do pacote.",
-         "A comparação depende dos critérios e da qualidade dos dados registrados."),
+         "A comparação depende dos critérios e da qualidade dos dados registrados.", "continue_now",
+         "Quais limitações do par mais restringem a interpretação desta comparação?"),
         ((InitialEvidence, NdviEvidence), "Conferir a cobertura temporal e os registros anteriores ao plantio.",
-         "A interpretação do NDVI exige considerar lacunas e diferenças iniciais."),
+         "A interpretação do NDVI exige considerar lacunas e diferenças iniciais.", "needs_data", None),
         ((SoilSummaryEvidence, SoilGroupsEvidence), "Documentar unidades, origem das amostras e significado dos conjuntos de solo.",
-         "As análises de solo têm escopo geral e não sustentam atribuição a talhões ou prescrição agronômica."),
-        ((ApplicationEvidence, PopulationEvidence), "Conferir os registros operacionais, áreas e configurações de aplicação e plantio.",
-         "As métricas operacionais descrevem registros disponíveis e precisam ser interpretadas com seus métodos e avisos."),
+         "As análises de solo têm escopo geral e não sustentam atribuição a talhões ou prescrição agronômica.", "needs_data", None),
+        ((ApplicationEvidence, PopulationEvidence), "Relacionar os registros operacionais aos sinais observados.",
+         "Os dados já permitem verificar se execução, população e vigor se movem juntos no recorte, sem concluir causalidade.", "continue_now",
+         "Os sinais de execução, população e NDVI aparecem nas mesmas datas ou períodos?"),
+        ((FieldNdviEvidence,), "Conferir em campo as datas próximas às maiores mudanças da série.",
+         "A trajetória mostra quando a mudança ocorreu, mas não identifica sua origem.", "continue_now",
+         "Em quais datas ocorreram as maiores mudanças de NDVI e quais registros operacionais estão próximos delas?"),
+        ((FieldApplicationEvidence, FieldPopulationEvidence), "Cruzar os sinais da série com os registros operacionais do talhão.",
+         "Plantio e aplicações ajudam a contextualizar a trajetória, sem comprovar relação causal.", "continue_now",
+         "Quais eventos operacionais coincidem com as mudanças observadas na série do talhão?"),
     ]
-    return [ReportRecommendation(action=action, reason=reason,
+    return [ReportRecommendation(action=action, reason=reason, availability=availability,
+                                 suggested_question=suggested_question,
                                  evidence_ids=[item.evidence_id for item in evidence if isinstance(item, kinds)])
-            for kinds, action, reason in groups if any(isinstance(item, kinds) for item in evidence)]
+            for kinds, action, reason, availability, suggested_question in groups
+            if any(isinstance(item, kinds) for item in evidence)]
+
+
+def _overview(evidence: list[AnalyticalEvidence], *, comparisons: bool, partial: bool,
+              blockers: list) -> ReportOverview:
+    """Build the top-down answer before exposing supporting detail."""
+    ndvi = next((item for item in evidence if isinstance(item, NdviEvidence)), None)
+    field_ndvi = next((item for item in evidence if isinstance(item, FieldNdviEvidence)), None)
+    application = next((item for item in evidence if isinstance(item, ApplicationEvidence)), None)
+    soil = any(isinstance(item, (SoilSummaryEvidence, SoilGroupsEvidence)) for item in evidence)
+    missing_tooling = any(item is not None and item.blocker_type == "missing_tooling" for item in blockers)
+    missing_data = any(item is not None and item.blocker_type == "missing_data" for item in blockers)
+
+    if comparisons and ndvi is not None:
+        headline = "O recorte permite comparar o vigor observado nos dois talhões"
+        first = "Resposta direta: a comparação encontrou uma diferença média de NDVI no recorte disponível."
+        second = ("Os registros de aplicação são semelhantes entre os talhões, mas não avaliam a adequação agronômica."
+                  if application is not None and application.target_compliance_percent == application.reference_compliance_percent
+                  else "Os registros operacionais ajudam a contextualizar o resultado, sem determinar sua origem.")
+        if soil:
+            third = "O solo ainda não pode explicar esse resultado porque as amostras não estão vinculadas aos talhões e não têm unidades documentadas."
+        elif ndvi.paired_dates < 5:
+            third = "Vale continuar, mas são necessárias mais datas pareadas para reconhecer uma tendência."
+        else:
+            third = "A leitura é observacional e não demonstra efeito do manejo nem produtividade."
+    elif not comparisons and field_ndvi is not None:
+        changed = bool(field_ndvi.abrupt_changes)
+        headline = ("A série apresenta mudanças que merecem investigação" if changed
+                    else "A série não apresenta mudanças bruscas pela regra disponível")
+        first = ("Resposta direta: a trajetória contém mudanças bruscas sinalizadas para investigação."
+                 if changed else "Resposta direta: a regra disponível não sinalizou mudanças bruscas na trajetória.")
+        second = "Os registros mostram quando a mudança ocorreu, mas não identificam sua origem."
+        third = "O resultado deve ser lido junto às datas de plantio e aplicações já registradas."
+    else:
+        headline = "Os dados disponíveis ainda não respondem à pergunta com segurança"
+        first = "Resposta direta: o recorte não contém evidência suficiente para uma conclusão específica."
+        second = "Os resultados disponíveis servem apenas como contexto e não sustentam uma conclusão adicional."
+        third = "A leitura é parcial; as limitações abaixo identificam exatamente o que não foi respondido."
+
+    if missing_tooling and missing_data:
+        third = (
+            "Partes diferentes da pergunta ficaram sem resposta: em uma, a ferramenta analítica necessária "
+            "ainda não está implementada; em outra, os dados necessários estão ausentes, inválidos ou sem o vínculo exigido."
+        )
+    elif missing_tooling:
+        third = "Parte da pergunta não pôde ser respondida porque a ferramenta analítica necessária ainda não está implementada."
+    elif missing_data:
+        third = "Parte da pergunta não pôde ser respondida porque os dados necessários estão ausentes, inválidos ou sem o vínculo exigido."
+    elif partial and "Vale continuar" not in third and "necessário" not in third:
+        third = "A leitura é parcial e as limitações abaixo identificam exatamente o que não foi respondido."
+    return ReportOverview(headline=headline, summary=" ".join((first, second, third)), evidence_strength="weak")
 
 
 def build_fallback_report(evidence: list[AnalyticalEvidence], warnings: list[ValidationIssue] = (),
@@ -182,34 +267,41 @@ def build_fallback_report(evidence: list[AnalyticalEvidence], warnings: list[Val
     if invalid:
         raise FallbackError("invalid_fallback_input")
     comparisons = [item for item in evidence if isinstance(item, ComparisonEvidence)]
-    if not comparisons:
-        raise FallbackError("comparison_required")
-    if any(not item.allowed for item in comparisons):
+    individual = [item for item in evidence if isinstance(item, (FieldNdviEvidence, FieldPopulationEvidence, FieldApplicationEvidence))]
+    if not comparisons and not individual:
+        raise FallbackError("scope_evidence_required")
+    if comparisons and individual:
+        raise FallbackError("invalid_fallback_input")
+    if comparisons and any(not item.allowed for item in comparisons):
         raise FallbackError("invalid_comparison")
-    comparison = comparisons[0]
-    context = (comparison.target_field_id, comparison.reference_field_id, comparison.period)
-    if (len(comparisons) != 1 or len({item.evidence_id for item in evidence}) != len(evidence)
-            or any((item.target_field_id, item.reference_field_id, item.period) != context
-                   for item in evidence if hasattr(item, "target_field_id"))
+    if comparisons:
+        comparison = comparisons[0]
+        context = (comparison.target_field_id, comparison.reference_field_id, comparison.period)
+        invalid_context = (len(comparisons) != 1 or any(
+            (item.target_field_id, item.reference_field_id, item.period) != context
+            for item in evidence if hasattr(item, "target_field_id")
+        ))
+    else:
+        first = individual[0]
+        context = (first.field_id, first.period)
+        invalid_context = any((item.field_id, item.period) != context for item in individual)
+    if (len({item.evidence_id for item in evidence}) != len(evidence) or invalid_context
             or any(item.available and (item.mean_gap is None or item.different is None)
                    for item in evidence if isinstance(item, InitialEvidence))):
         raise FallbackError("invalid_fallback_input")
     evidence = sorted(evidence, key=_order)
     limitations = required_limitations(evidence, warnings)
-    expected = (InitialEvidence, NdviEvidence, PopulationEvidence, ApplicationEvidence, SoilSummaryEvidence, SoilGroupsEvidence)
+    expected = ((InitialEvidence, NdviEvidence, PopulationEvidence, ApplicationEvidence, SoilSummaryEvidence, SoilGroupsEvidence)
+                if comparisons else (FieldNdviEvidence, FieldPopulationEvidence, FieldApplicationEvidence))
     partial = any(not any(isinstance(item, kind) for item in evidence) for kind in expected)
     if partial:
         limitations.append(ReportLimitation(
             rule_id="partial_analysis", title="Análises parciais",
             explanation="Nem todas as análises estão disponíveis neste relatório; ausência de resultado não indica ausência de diferença.",
         ))
-    summary = ("Relatório determinístico elaborado por templates locais com as evidências disponíveis. "
-               "Os resultados descrevem associações observacionais, sem demonstrar efeito do manejo ou ganho de produtividade. ")
-    summary += ("A cobertura de análises é parcial; consulte as limitações e os avisos."
-                if partial else "Consulte os achados, as limitações e os avisos antes de interpretar a comparação.")
+    blockers = [capability_gap_for_code(item.code) for item in warnings]
     report = InvestigationReport(
-        overview=ReportOverview(headline="Relatório determinístico — comparação observacional", summary=summary,
-                                evidence_strength="weak"),
+        overview=_overview(evidence, comparisons=bool(comparisons), partial=partial, blockers=blockers),
         findings=[_finding(item) for item in evidence], limitations=limitations,
         recommendations=_recommendations(evidence),
     )
@@ -217,6 +309,6 @@ def build_fallback_report(evidence: list[AnalyticalEvidence], warnings: list[Val
     # surface to the caller; never publish a report that bypasses these checks.
     report = validate_report_language(validate_report_evidence(report, evidence, warnings))
     notice = ValidationIssue(code="deterministic_fallback", message=(
-        _REASONS.get(reason, _REASONS["unavailable"]) + " Relatório produzido por templates locais."
+        _REASONS.get(reason, _REASONS["unavailable"]) + " Relatório elaborado com as evidências calculadas."
     ))
     return FallbackResult(report=report, warnings=[*warnings, notice])

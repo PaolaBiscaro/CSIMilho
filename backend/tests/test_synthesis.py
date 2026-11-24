@@ -58,6 +58,8 @@ def test_valid_fake_response_becomes_report_with_facts_only_and_no_tools(plannin
     assert len(contents) == 1 and contents[0].role == "user"
     payload = json.loads(contents[0].parts[0].text)
     assert payload == {
+        "question": planning.question,
+        "analysis_mode": planning.analysis_mode,
         "evidence": [item.model_dump(mode="json") for item in planning.evidence],
         "reference_findings": [item.model_dump(mode="json") for item in
                                build_fallback_report(planning.evidence, planning.warnings).report.findings],
@@ -89,7 +91,7 @@ def test_completed_loop_and_tool_limit_both_produce_draft(context, report_payloa
         assert len(draft.planning.trace.calls) == 2 and len(draft.planning.evidence) == 2
         assert len(client.calls) == len(planned) + 1
         assert len(client.calls[-1][0]) == 1  # No planning dialogue/free-form answer.
-        assert request.question not in client.calls[-1][0][0].parts[0].text
+        assert json.loads(client.calls[-1][0][0].parts[0].text)["question"] == request.question
         assert "Análise finalizada" not in client.calls[-1][0][0].parts[0].text
         assert not client.closed
 
@@ -296,7 +298,10 @@ def test_real_sdk_sends_json_schema_and_facts_only_over_in_memory_transport(cont
     assert config["responseJsonSchema"] == InvestigationReport.model_json_schema()
     assert len(payload["contents"]) == 1
     facts = json.loads(payload["contents"][0]["parts"][0]["text"])
-    assert set(facts) == {"evidence", "reference_findings", "warnings", "required_limitations"} and len(facts["evidence"]) == 2
+    assert set(facts) == {
+        "question", "analysis_mode", "evidence", "reference_findings", "warnings",
+        "required_limitations",
+    } and len(facts["evidence"]) == 2
 
 
 @pytest.mark.parametrize("mistake,code", [("id", "unknown_evidence_id"), ("number", "unsupported_number"),

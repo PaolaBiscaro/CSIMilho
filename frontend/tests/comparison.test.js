@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import fixture from '../src/mocks/analytics-preview.json'
+import fixture from './fixtures/analytics-result.json'
 import { allowedPair, createComparisonView, defaultQuestion } from '../src/ui/comparison.js'
 import { AppState, resetStateForTests, setDataset, state, transitionTo } from '../src/state.js'
 
@@ -24,18 +24,15 @@ it('accepts only pairs returned by the backend, including reverse order', () => 
 })
 
 describe('comparison controls', () => {
-  it('uses fixtures without requests and blocks Grão × Silagem even on direct submit', () => {
+  it('requires an imported package and never exposes illustrative controls', () => {
     const navigate = vi.fn()
     const diagnose = vi.fn()
     const view = createComparisonView(navigate, { dataset: null, diagnose })
-    const execute = view.querySelector('[type="submit"]')
-    expect(execute.disabled).toBe(false)
-    change(view.querySelector('[name="reference"]'), '103147')
-    expect(execute.disabled).toBe(true)
-    view.querySelector('form').dispatchEvent(new Event('submit', { cancelable: true }))
-    expect(navigate).not.toHaveBeenCalled()
+    expect(view.textContent).toContain('Importe os dados para comparar')
+    expect(view.querySelector('form')).toBeNull()
     expect(diagnose).not.toHaveBeenCalled()
-    expect(view.querySelector('textarea').value).toContain('Silagem Convencional')
+    view.querySelector('button').click()
+    expect(navigate).toHaveBeenCalledExactlyOnceWith('data')
     view.dispose()
   })
   it('loads live criteria and analyses only for returned valid pairs', async () => {
@@ -77,7 +74,7 @@ describe('comparison controls', () => {
   it('uses the new target/reference names in the question and preserves text as text', () => {
     const text = defaultQuestion('<img src=x>', 'Referência')
     expect(text).toContain('<img src=x> e Referência')
-    const view = createComparisonView(() => {}, { dataset: null })
+    const view = createComparisonView(() => {}, { dataset, diagnose: async () => pair })
     const swap = [...view.querySelectorAll('button')].find((button) => button.textContent === 'Trocar talhões')
     swap.click()
     expect(view.querySelector('textarea').value).toContain('Grão Convencional e Grão 4.0')
@@ -103,13 +100,35 @@ it('keeps the action blocked when the backend has no eligible pair', () => {
   view.dispose()
 })
 
+it('runs an individual investigation without comparison diagnostics', async () => {
+  const diagnose = vi.fn()
+  const investigate = vi.fn().mockResolvedValue({ status: 'completed', investigation_id: 'single' })
+  const navigate = vi.fn()
+  const view = createComparisonView(navigate, { dataset: { ...dataset, valid_pairs: [] }, diagnose, investigate })
+  change(view.querySelector('[name="analysis_mode"]'), 'single_field')
+  expect(view.querySelector('[name="reference"]').closest('label').hidden).toBe(true)
+  expect(view.textContent).toContain('Trajetória temporal e mudanças bruscas de NDVI')
+  expect(view.querySelector('[type="submit"]').disabled).toBe(false)
+  expect(diagnose).not.toHaveBeenCalled()
+  view.querySelector('form').dispatchEvent(new Event('submit', { cancelable: true }))
+  await vi.waitFor(() => expect(investigate).toHaveBeenCalledOnce())
+  expect(investigate.mock.calls[0][0]).toMatchObject({
+    dataset_id: 'dataset-test', requested_mode: 'auto', target_field_id: '103144',
+    reference_field_id: null,
+  })
+  await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('investigation'))
+  view.dispose()
+})
+
 it('submits the selected payload once, locks controls, and navigates after completion', async () => {
   let finish
-  const investigate = vi.fn(() => new Promise((resolve) => { finish = resolve }))
+  const investigate = vi.fn((_payload, { onProgress }) => {
+    onProgress({ stage: 'tool_started', message: 'Comparando a evolução do NDVI', tool: 'compare_ndvi' })
+    return new Promise((resolve) => { finish = resolve })
+  })
   const navigate = vi.fn()
   const onBusyChange = vi.fn()
-  const onPreview = vi.fn()
-  const view = createComparisonView(navigate, { dataset, diagnose: async () => pair, investigate, onBusyChange, onPreview })
+  const view = createComparisonView(navigate, { dataset, diagnose: async () => pair, investigate, onBusyChange })
   await vi.waitFor(() => expect(view.querySelector('[type="submit"]').disabled).toBe(false))
   view.querySelector('textarea').value = '  Compare o NDVI e o solo deste pacote.  '
   const form = view.querySelector('form')
@@ -118,21 +137,22 @@ it('submits the selected payload once, locks controls, and navigates after compl
   await Promise.resolve()
   expect(investigate).toHaveBeenCalledExactlyOnceWith({
     dataset_id: 'dataset-test', target_field_id: '103144', reference_field_id: '103145',
-    period: 'full_season', question: 'Compare o NDVI e o solo deste pacote.',
-  })
+    requested_mode: 'auto', prior_turn_id: null, message: 'Compare o NDVI e o solo deste pacote.',
+  }, { onProgress: expect.any(Function), signal: expect.any(AbortSignal) })
   expect(state.status).toBe(AppState.INVESTIGATING)
   expect(form.getAttribute('aria-busy')).toBe('true')
   expect([...form.querySelectorAll('select, textarea, button:not([hidden])')].every((node) => node.disabled)).toBe(true)
   expect(view.querySelector('progress').hasAttribute('value')).toBe(false)
   expect(view.querySelector('.investigation-progress').hidden).toBe(false)
-  expect(view.querySelectorAll('.investigation-progress li')).toHaveLength(5)
+  expect(view.querySelector('.investigation-log').open).toBe(true)
+  expect(view.querySelectorAll('.investigation-progress li')).toHaveLength(2)
+  expect(view.querySelector('.investigation-progress').textContent).toContain('Comparando a evolução do NDVI')
   expect(navigate).not.toHaveBeenCalled()
   const result = { status: 'completed', generated_by: 'gemini', investigation_id: 'result' }
   finish(result)
   await vi.waitFor(() => expect(navigate).toHaveBeenCalledExactlyOnceWith('investigation'))
   expect(state.investigation).toBe(result)
   expect(state.dataset).toBe(dataset)
-  expect(onPreview).not.toHaveBeenCalled()
   expect(onBusyChange.mock.calls).toEqual([[true], [false]])
   expect(view.querySelector('.investigation-progress').hidden).toBe(true)
   view.dispose()
@@ -150,40 +170,32 @@ it.each(['curta', 'a'.repeat(501)])('rejects an invalid question before making a
   view.dispose()
 })
 
-it('shows an error safely, supports revisiting it, and restarts without reloading', async () => {
+it('shows a transient error safely and unlocks the same comparison for another attempt', async () => {
   const navigate = vi.fn()
   const failure = new Error('<img src=x onerror=alert(1)> Serviço indisponível')
   const view = createComparisonView(navigate, { dataset, diagnose: async () => pair, investigate: async () => { throw failure } })
   await vi.waitFor(() => expect(view.querySelector('[type="submit"]').disabled).toBe(false))
   view.querySelector('form').dispatchEvent(new Event('submit', { cancelable: true }))
-  await vi.waitFor(() => expect(state.status).toBe(AppState.ERROR))
+  await vi.waitFor(() => expect(state.status).toBe(AppState.READY))
   await vi.waitFor(() => expect(view.querySelector('[role="alert"]')?.textContent).toBe(failure.message))
   expect(view.querySelector('img')).toBeNull()
-  expect(view.querySelector('[type="submit"]').disabled).toBe(true)
-  expect(view.querySelector('.investigation-progress').hidden).toBe(true)
+  expect(view.querySelector('[type="submit"]').disabled).toBe(false)
+  expect(view.querySelector('.investigation-progress').hidden).toBe(false)
+  expect(view.querySelector('.investigation-progress').textContent).toContain('Não foi possível gerar o relatório')
+  expect(view.querySelector('.investigation-progress').textContent).toContain(failure.message)
   expect(navigate).not.toHaveBeenCalled()
+  const restart = [...view.querySelectorAll('button')].find((node) => node.textContent === 'Reiniciar pacote')
+  expect(restart.hidden).toBe(true)
   view.dispose()
-  const diagnose = vi.fn()
-  const revisited = createComparisonView(navigate, { dataset, diagnose })
-  expect(revisited.querySelector('[role="alert"]').textContent).toBe(failure.message)
-  expect(diagnose).not.toHaveBeenCalled()
-  const restart = [...revisited.querySelectorAll('button')].find((node) => node.textContent === 'Reiniciar pacote')
-  expect(restart.hidden).toBe(false)
-  restart.click()
-  expect(state.status).toBe(AppState.EMPTY)
-  expect(state.dataset).toBeNull()
-  expect(navigate).toHaveBeenCalledExactlyOnceWith('data')
-  revisited.dispose()
 })
 
-it('keeps a valid preview separate from the real request and store', () => {
+it('does not expose comparison data without an imported package', () => {
   const investigate = vi.fn()
-  const onPreview = vi.fn()
   const navigate = vi.fn()
-  const view = createComparisonView(navigate, { dataset: null, investigate, onPreview })
-  view.querySelector('form').dispatchEvent(new Event('submit', { cancelable: true }))
+  const view = createComparisonView(navigate, { dataset: null, investigate })
+  expect(view.querySelector('form')).toBeNull()
+  expect(view.querySelectorAll('select, textarea, canvas, table')).toHaveLength(0)
   expect(investigate).not.toHaveBeenCalled()
-  expect(onPreview).toHaveBeenCalledExactlyOnceWith('103144:103145')
   expect(state.status).toBe(AppState.READY)
   expect(state.investigation).toBeNull()
   view.dispose()

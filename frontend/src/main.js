@@ -3,11 +3,10 @@ import './styles/base.css'
 import './styles/layout.css'
 import './styles/components.css'
 import { createComparisonView } from './ui/comparison.js'
-import { createInvestigationPreview } from './ui/investigation-preview.js'
 import { createNavigation } from './ui/navigation.js'
 import { createUploadView } from './ui/upload.js'
 import { createInvestigationResult } from './ui/results.js'
-import { createPreflightPanel } from './ui/preflight.js'
+import { createGeminiTestControl } from './ui/preflight.js'
 import { AppState, startNewComparison, state } from './state.js'
 
 const app = document.querySelector('#app')
@@ -32,20 +31,18 @@ function createDataView() {
   copy.append(
     element('span', 'eyebrow', '01 · Preparar dados'),
     element('h1', '', 'Pacote da safra'),
-    element('p', 'page-heading__description', 'Importe os sete arquivos, confira a qualidade e avance com um dataset validado.'),
+    element('p', 'page-heading__description', 'Importe os sete arquivos, confira a qualidade e avance com o pacote validado.'),
   )
   const context = element('div', 'heading-context')
-  context.append(
-    element('strong', '', 'Validação local'),
-    element('span', '', 'Dados temporários · até 100 MB'),
-  )
+  const geminiControl = createGeminiTestControl()
+  context.append(geminiControl)
   heading.append(copy, context)
 
   const metrics = element('div', 'metric-grid metric-grid--three')
   const items = [
-    ['Arquivos obrigatórios', '7', 'CSV com nomes controlados'],
-    ['Escopo do solo', 'Dataset', 'Sem associação a talhões'],
-    ['Persistência', 'Nenhuma', 'Sessão mantida em memória'],
+    ['Arquivos necessários', '7', 'Nomes definidos para cada CSV'],
+    ['Formato aceito', 'CSV', 'Um pacote por análise'],
+    ['Limite do pacote', '100 MB', 'Soma dos arquivos enviados'],
   ]
   for (const [label, value, detail] of items) {
     const card = element('article', 'metric-card')
@@ -57,10 +54,9 @@ function createDataView() {
     metrics.append(card)
   }
 
-  const preflight = createPreflightPanel()
-  view.append(heading, preflight, metrics, createUploadView())
-  view.mount = () => preflight.mount()
-  view.dispose = () => preflight.dispose()
+  view.append(heading, metrics, createUploadView())
+  view.mount = () => geminiControl.mount()
+  view.dispose = () => geminiControl.dispose()
   return view
 }
 
@@ -74,28 +70,33 @@ skip.href = '#main-content'
 skip.addEventListener('click', (event) => { event.preventDefault(); content.focus() })
 let currentPage = 'data'
 let activeView
-let previewPair = '103144:103145'
 let dataView = createDataView()
 
 function renderNavigation(busy = state.status === AppState.INVESTIGATING) {
-  headerSlot.replaceChildren(createNavigation(currentPage, navigate, { busy }))
+  headerSlot.replaceChildren(createNavigation(currentPage, navigate, {
+    busy,
+    comparisonAvailable: Boolean(state.dataset?.dataset_id),
+    investigationAvailable: Boolean(state.investigation),
+  }))
 }
 
 function navigate(pageId) {
   if (!['data', 'comparison', 'investigation'].includes(pageId)) return
   if (state.status === AppState.INVESTIGATING) return
+  if (pageId === 'comparison' && !state.dataset?.dataset_id) return
+  if (pageId === 'investigation' && !state.investigation) return
   if (pageId === 'comparison' && state.status === AppState.COMPLETED) startNewComparison()
   if (pageId === 'data' && state.status === AppState.EMPTY) dataView = createDataView()
   const moveFocus = Boolean(activeView)
   activeView?.dispose?.()
   currentPage = pageId
   activeView = pageId === 'data' ? dataView : pageId === 'comparison'
-    ? createComparisonView(navigate, { onPreview: (key) => { previewPair = key }, onBusyChange: renderNavigation })
-    : state.dataset ? createInvestigationResult(navigate) : createInvestigationPreview(navigate, previewPair)
+    ? createComparisonView(navigate, { onBusyChange: renderNavigation })
+    : createInvestigationResult(navigate)
   renderNavigation()
   content.replaceChildren(activeView)
   activeView.mount?.()
-  const pageName = currentPage === 'data' ? 'Dados' : currentPage === 'comparison' ? 'Comparação' : 'Investigação'
+  const pageName = currentPage === 'data' ? 'Dados' : currentPage === 'comparison' ? 'Perguntar aos dados' : 'Resposta'
   document.title = `${pageName} · FarmLab Investigator`
   if (moveFocus) {
     const title = activeView.querySelector('h1') ?? content

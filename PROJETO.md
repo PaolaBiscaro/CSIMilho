@@ -32,8 +32,6 @@ O FarmLab Investigator transforma essa pergunta em um processo único:
 
 A apresentação deve funcionar de forma direta, sem dados pré-carregados escondidos.
 
-Durante o desenvolvimento, as telas de **Comparação** e **Investigação** também possuem uma prévia navegável com dados demonstrativos locais. Essa prévia existe para validar layout e interação, aparece claramente identificada como mock e não substitui a execução real descrita abaixo.
-
 1. A aplicação é aberta no navegador.
 2. Os sete CSVs são importados ao vivo.
 3. A tela mostra quais arquivos foram reconhecidos, avisos e qualidade do pacote.
@@ -45,13 +43,13 @@ Durante o desenvolvimento, as telas de **Comparação** e **Investigação** tam
 9. A área **Solo** mostra estatísticas descritivas e a comparação entre Conjunto 1 e Conjunto 2.
 10. As áreas seguintes mostram evidências, gráficos, limitações, recomendações e métodos.
 
-## 4. Escopo funcional do MVP
+## 4. Escopo funcional
 
 ### Incluído
 
 - importação manual de sete arquivos CSV;
 - validação de nomes, colunas, tipos, chaves e disponibilidade;
-- descoberta dos quatro talhões da demonstração;
+- descoberta dos talhões do pacote importado;
 - seleção de talhão analisado e talhão de referência;
 - bloqueio ou aviso para comparações incoerentes;
 - comparação da trajetória de NDVI em datas pareadas;
@@ -66,10 +64,8 @@ Durante o desenvolvimento, as telas de **Comparação** e **Investigação** tam
 - rastreabilidade de cada evidência;
 - fallback determinístico quando o Gemini falhar;
 - download do relatório da investigação em HTML;
-- execução local para a apresentação.
-- prévia frontend clicável das telas de comparação e investigação, com dados mockados explicitamente identificados;
 
-### Fora do MVP
+### Fora do escopo
 
 - login e gestão de usuários;
 - banco de dados permanente;
@@ -171,6 +167,36 @@ Portanto, o fluxo correto é:
 
 > Gemini decide o plano e redige; Python calcula; o harness controla e valida.
 
+### 8.1 Perguntas complementares e cobertura analítica
+
+A pergunta livre serve para aprofundar os dados além dos indicadores já exibidos
+nos gráficos padrão. O planejador deve selecionar somente as ferramentas
+pertinentes ao questionamento, sem repetir automaticamente todas as análises
+disponíveis.
+
+Perguntas novas são aceitas, mas o backend continua operando com um catálogo
+fechado de ferramentas testadas. Quando o pedido exigir um método ainda não
+implementado — como teste inferencial, correlação ou regressão, produtividade,
+inferência de causa, previsão, análise espacial ou análise multivariada — o
+relatório deve declarar a lacuna e informar qual ferramental ou dado adicional
+seria necessário. O Gemini não pode substituir o método ausente por outra
+análise, executar código livre ou inventar um resultado.
+
+O harness diferencia dois bloqueios. `missing_tooling` indica que ainda não há
+um módulo analítico determinístico e validado para o método pedido.
+`missing_data` indica que a ferramenta existe, mas não recebeu valores válidos,
+cobertura mínima ou os vínculos necessários entre talhão, data, operação ou
+amostra. Nesse segundo caso, uma análise opcional indisponível não derruba o
+relatório inteiro: ela é registrada como erro, vira uma limitação com a lista
+das informações necessárias e as demais análises continuam. Erros de contrato,
+infraestrutura ou resultado inválido permanecem fatais.
+
+A resposta da investigação é apresentada em dois níveis. A primeira parte usa
+linguagem simples para explicar a conclusão e a incerteza a qualquer pessoa. A
+segunda reúne achados técnicos, evidências, cálculos, fontes, métodos e
+limitações. O mapa de expansão do catálogo está em
+[`FERRAMENTAS_ANALITICAS.md`](FERRAMENTAS_ANALITICAS.md).
+
 ## 9. Resultado mostrado na interface
 
 A investigação concluída deve conter:
@@ -212,7 +238,7 @@ Não haverá mapa nem tendência temporal de solo enquanto o arquivo não fornec
 - nenhum framework de interface.
 - identidade visual em tons de marrom, com `#895129` como cor primária e tokens CSS definidos no `SPEC.md`.
 - composição visual inspirada em dashboards: cabeçalho horizontal, navegação em pílulas, canvas claro e grade responsiva de cards;
-- prévias locais não chamam o backend de investigação e não contam como implementação das análises.
+- Comparação e Investigação permanecem indisponíveis até a validação dos CSVs importados.
 
 ### Backend
 
@@ -226,14 +252,14 @@ Não haverá mapa nem tendência temporal de solo enquanto o arquivo não fornec
 
 ### Execução da apresentação
 
-O build do frontend será servido pelo próprio FastAPI. Assim, a apresentação usa uma única URL local, por exemplo `http://localhost:8000`, e a chave do Gemini permanece no backend por meio da variável `GEMINI_API_KEY`.
+O build do frontend será servido pelo próprio FastAPI. Assim, a aplicação usa uma única URL e a chave do Gemini permanece no backend por meio da variável `GEMINI_API_KEY`.
 
 ## 11. Custo e privacidade
 
 O projeto deve operar sem custo obrigatório:
 
 - bibliotecas de código aberto;
-- execução local;
+- execução sem infraestrutura paga obrigatória;
 - API do Gemini configurada em um projeto no free tier;
 - sem banco, storage ou hospedagem pagos.
 
@@ -243,7 +269,7 @@ Os CSVs brutos não devem ser enviados ao Gemini. O modelo recebe somente invent
 
 ## 12. Critérios de sucesso
 
-O MVP estará pronto quando:
+O projeto estará pronto quando:
 
 1. os sete arquivos puderem ser importados na interface;
 2. erros de pacote forem mostrados em linguagem compreensível;

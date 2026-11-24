@@ -3,7 +3,8 @@ from datetime import timezone
 from html import escape
 
 from app.analytics.contracts import (
-    ApplicationEvidence, ComparisonEvidence, NdviEvidence, SoilGroupsEvidence, SoilSummaryEvidence,
+    ApplicationEvidence, ComparisonEvidence, FieldApplicationEvidence, FieldNdviEvidence,
+    FieldPopulationEvidence, NdviEvidence, SoilGroupsEvidence, SoilSummaryEvidence,
 )
 from app.harness.schemas import InvestigationResponse
 
@@ -21,6 +22,9 @@ table{width:100%;border-collapse:collapse;font-size:.9rem}caption{text-align:lef
 """
 TOOLS = {
     "validate_comparison": "Validar comparabilidade", "compare_ndvi": "Comparar NDVI",
+    "analyze_field_ndvi": "Analisar trajetória NDVI do talhão",
+    "summarize_field_population": "Resumir população do talhão",
+    "summarize_field_application": "Resumir aplicação do talhão",
     "check_initial_condition": "Verificar condição inicial", "compare_population": "Comparar população",
     "application_compliance": "Conformidade de aplicação", "summarize_soil_analysis": "Resumo de solo",
     "compare_soil_measurement_groups": "Comparação de conjuntos de solo",
@@ -89,6 +93,23 @@ def evidence_html(item, anchor):
                 parts.append(table(f"Pares · {metric.name}", ["Amostra", "Conjunto 1", "Conjunto 2", "Delta 2 − 1"],
                                    [[p.sample_id, p.group_1, p.group_2, p.delta] for p in metric.pairs]))
         parts.extend(paragraph(limitation, "notice") for limitation in item.limitations)
+    elif isinstance(item, (FieldNdviEvidence, FieldPopulationEvidence, FieldApplicationEvidence)):
+        parts.append(metadata([("Talhão", item.field_id)]))
+        if isinstance(item, FieldNdviEvidence):
+            parts.append(metadata([("Datas", item.observations), ("NDVI médio", item.mean_ndvi),
+                                   ("NDVI mínimo", item.min_ndvi), ("NDVI máximo", item.max_ndvi),
+                                   ("Mudança total", item.total_change), ("Limiar operacional", item.abrupt_change_threshold),
+                                   ("Mudanças bruscas", len(item.abrupt_changes))]))
+            parts.append(table("Série NDVI", ["Data", "NDVI", "Mudança desde a data anterior"],
+                               [[p.date.strftime("%d/%m/%Y"), p.ndvi, p.change_from_previous] for p in item.series]))
+        elif isinstance(item, FieldPopulationEvidence):
+            parts.append(metadata([("População por hectare", item.population_per_ha),
+                                   ("Linhas válidas", item.rows.valid), ("Linhas descartadas", item.rows.discarded)]))
+        else:
+            parts.append(metadata([("Operação", item.operation), ("Conformidade (%)", item.compliance_percent),
+                                   ("Dose aplicada", item.applied_dose), ("Dose configurada", item.configured_dose),
+                                   ("Unidade", item.dose_unit), ("Linhas válidas", item.rows.valid),
+                                   ("Linhas descartadas", item.rows.discarded)]))
     else:
         parts.append(metadata([("Talhão alvo", item.target_field_id), ("Talhão de referência", item.reference_field_id)]))
         parts.append(table("Valores consolidados", ["Métrica", "Alvo", "Referência", "Diferença", "Unidade"],
@@ -120,6 +141,11 @@ def public_arguments(call):
         items = [("Escopo", "Dataset, sem vínculo com talhão"), ("Métricas", ', '.join(args.metrics) if args.metrics is not None else "Todas as disponíveis")]
         if call.tool.value == "summarize_soil_analysis":
             items.append(("Conjunto", "Conjunto 1" if args.measurement_group == "group_1" else "Conjunto 2"))
+    elif call.tool.value in ("analyze_field_ndvi", "summarize_field_population", "summarize_field_application"):
+        period = "Safra completa" if args.period == "full_season" else f"{args.period.start:%d/%m/%Y} a {args.period.end:%d/%m/%Y}"
+        items = [("Talhão", args.field_id), ("Período", period)]
+        if call.tool.value == "summarize_field_application":
+            items.append(("Operação", args.operation))
     else:
         period = "Safra completa" if args.period == "full_season" else f"{args.period.start:%d/%m/%Y} a {args.period.end:%d/%m/%Y}"
         items = [("Talhão alvo", args.target_field_id), ("Talhão de referência", args.reference_field_id), ("Período", period)]
@@ -131,8 +157,13 @@ def public_arguments(call):
 def render_html_report(result: InvestigationResponse) -> str:
     report, trace = result.report, result.trace
     fallback = result.generated_by == "deterministic_fallback"
-    origin = "Fallback determinístico · gerado localmente" if fallback else "Gemini"
+    origin = "Geração de contingência" if fallback else "Gemini"
     anchors = {item.evidence_id: f"evidence-{index}" for index, item in enumerate(result.evidence)}
+    next_step_status = {
+        "continue_now": "Pode continuar agora",
+        "needs_data": "Depende de novos dados",
+        "needs_tooling": "Depende de nova ferramenta",
+    }
     parts = ['<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">',
              '<meta name="viewport" content="width=device-width, initial-scale=1">',
              f'<meta http-equiv="Content-Security-Policy" content="{text(CSP)}">',
@@ -140,19 +171,25 @@ def render_html_report(result: InvestigationResponse) -> str:
              '<header><p class="badge">FarmLab Investigator · Relatório da investigação</p>', f'<h1>{text(report.overview.headline)}</h1>',
              metadata([("Origem", origin), ("Modelo configurado", trace.model), ("Início", timestamp(trace.created_at)),
                        ("Investigação", result.investigation_id), ("Trace", trace.trace_id), ("Dataset", trace.dataset_id)]),
-             '</header><nav aria-label="Seções do relatório"><a href="#overview">Visão geral</a><a href="#evidence">Evidências</a><a href="#limitations">Limitações</a><a href="#methods">Métodos</a></nav>',
-             '<section id="overview"><h2>Visão geral</h2>', paragraph(report.overview.summary),
-             metadata([("Força da evidência", {"weak": "Fraca", "moderate": "Moderada", "strong": "Forte"}[report.overview.evidence_strength])])]
+             '</header><nav aria-label="Seções do relatório"><a href="#overview">Resumo e resultados</a><a href="#evidence">Evidências</a><a href="#limitations">Limitações</a><a href="#methods">Métodos</a></nav>',
+             '<section id="overview"><h2>Resposta</h2>', paragraph(report.overview.summary),
+             metadata([("Confiança nesta leitura", {"weak": "Baixa", "moderate": "Média", "strong": "Alta"}[report.overview.evidence_strength])])]
     if fallback:
-        parts.append(paragraph("Relatório produzido por templates locais. O modelo configurado não identifica o autor deste relatório.", "notice"))
-    parts.append('<h2>Achados</h2>')
+        parts.append(paragraph("O Gemini não estava disponível; o relatório foi elaborado com as evidências calculadas.", "notice"))
+    parts.append('<h2>Principais insights</h2>')
+    parts.append(paragraph("As leituras que sustentam a resposta, interpretadas para a pergunta feita."))
     for item in report.findings:
         parts.extend([f'<article><h3>{text(item.title)}</h3>', paragraph(item.explanation), references(item.evidence_ids, anchors), '</article>'])
     if not report.findings:
         parts.append(paragraph("Nenhum achado incluído."))
-    parts.append('<h2>Recomendações</h2>')
+    parts.append('<h2>Próximos passos</h2>')
+    parts.append(paragraph("Cada item informa se a investigação pode continuar agora ou se depende de novos dados ou ferramentas."))
     for item in report.recommendations:
-        parts.extend([f'<article><h3>{text(item.action)}</h3><h4>Justificativa</h4>', paragraph(item.reason), references(item.evidence_ids, anchors), '</article>'])
+        parts.extend([f'<article><p class="badge">{text(next_step_status[item.availability])}</p><h3>{text(item.action)}</h3><h4>Por que este é o próximo passo</h4>',
+                      paragraph(item.reason)])
+        if item.suggested_question:
+            parts.extend(['<h4>Pergunta que já pode ser investigada</h4>', paragraph(item.suggested_question)])
+        parts.extend([references(item.evidence_ids, anchors), '</article>'])
     if not report.recommendations:
         parts.append(paragraph("Nenhuma recomendação incluída."))
     parts.append('</section><section id="evidence"><h2>Evidências</h2>')

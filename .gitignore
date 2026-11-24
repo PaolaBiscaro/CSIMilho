@@ -15,10 +15,12 @@ __pycache__/
 
 # Node / Vite
 node_modules/
+.pnpm-store/
 frontend/dist/
 dist/
 .vite/
 coverage/
+work/
 
 # Local data
 backend/.local/

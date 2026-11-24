@@ -9,7 +9,12 @@ from uuid import UUID
 from google.genai import types
 from pydantic import Field, ValidationError
 
-from app.analytics.contracts import ComparisonEvidence, NdviEvidence, SoilGroupsEvidence, SoilSummaryEvidence
+from app.analytics.contracts import (
+    ComparisonEvidence, FieldApplicationEvidence, FieldNdviEvidence, FieldPopulationEvidence,
+    NdviChangeEvidence, NdviEvidence, OperationNdviEvidence, PairedNdviTestEvidence,
+    SoilGroupsEvidence, SoilStatisticalEvidence, SoilSummaryEvidence,
+)
+from app.analytics.capabilities import missing_data_gap_for_tool
 from app.config import Settings, get_settings
 from app.data.contracts import StrictModel, ValidationIssue
 from app.data.session_store import SessionStore, dataset_store
@@ -23,8 +28,7 @@ from app.harness.schemas import (
     AnalyticalEvidence, InvestigationChartData, InvestigationReport, InvestigationRequest,
     InvestigationResponse, InvestigationTrace, ReportOrigin, ReportRepairTrace, ToolCallError,
 )
-from app.harness.fallback import build_fallback_report
-from app.harness.trace import InvestigationRecorder, ToolExecutionError
+from app.harness.trace import InvestigationRecorder, ProgressSink, ToolExecutionError
 from app.harness.validators import ToolCallValidationError, ReportValidationError, validate_report_evidence
 from app.harness.report_validation import ReportValidationIssue
 from app.harness.language_validation import ReportLanguageError, validate_report_language
@@ -46,6 +50,8 @@ class ToolLoopResult(StrictModel):
     evidence: list[AnalyticalEvidence]
     trace: InvestigationTrace
     warnings: list[ValidationIssue]
+    question: str | None = None
+    analysis_mode: Literal["comparison", "single_field"] = "comparison"
     error: ToolCallError | None = None
 
 
@@ -161,7 +167,7 @@ def run_investigation_tools(request: InvestigationRequest, *, client: PlanningCl
     are checked between synchronous steps; local Python calls are not preempted.
     """
     settings = (settings or get_settings()).model_copy(deep=True)
-    request = InvestigationRequest.model_validate(request.model_dump())
+    request = InvestigationRequest.model_validate({**request.model_dump(), "analysis_mode": request.analysis_mode})
     budget = _budget if _budget is not None else _GenerationBudget(settings.gemini_timeout_seconds)
     max_calls = min(8, settings.gemini_max_tool_calls)
     owned_client = client is None
@@ -178,23 +184,48 @@ def run_investigation_tools(request: InvestigationRequest, *, client: PlanningCl
             context = json.dumps(payload, ensure_ascii=False, allow_nan=False)
         contents = [types.Content(role="user", parts=[types.Part.from_text(text=context)])]
         comparison_allowed = _comparison is not None and _comparison.allowed
+        single_mode = request.analysis_mode == "single_field"
+        scope_ready = single_mode or comparison_allowed
+        single_only_tools = {
+            "analyze_field_ndvi",
+            "detect_field_ndvi_changes",
+            "associate_field_operations_ndvi",
+            "summarize_field_population",
+            "summarize_field_application",
+        }
+        allowed_tools = (
+            [
+                "analyze_field_ndvi",
+                "detect_field_ndvi_changes",
+                "associate_field_operations_ndvi",
+                "summarize_field_population",
+                "summarize_field_application",
+                "summarize_soil_analysis",
+                "compare_soil_measurement_groups",
+                "test_soil_measurement_groups",
+            ]
+            if single_mode
+            else [name for name in TOOLS if name not in single_only_tools]
+        )
         calls_used = len(recorder.snapshot().calls)
         remaining = budget.remaining
 
         def finish(reason, error=None) -> ToolLoopResult:
             return ToolLoopResult(
                 investigation_id=recorder.investigation_id, stop_reason=reason,
-                evidence=evidence, trace=recorder.snapshot(), warnings=warnings, error=error,
+                evidence=evidence, trace=recorder.snapshot(), warnings=warnings,
+                question=request.question, analysis_mode=request.analysis_mode, error=error,
             )
 
         try:
             while calls_used < max_calls:
-                mode = types.FunctionCallingConfig(mode="AUTO") if comparison_allowed else types.FunctionCallingConfig(
-                    mode="ANY", allowed_function_names=["validate_comparison"],
-                )
+                mode = (types.FunctionCallingConfig(mode="AUTO")
+                        if scope_ready else types.FunctionCallingConfig(
+                            mode="ANY", allowed_function_names=["validate_comparison"],
+                        ))
                 config = types.GenerateContentConfig(
                     system_instruction=SYSTEM_PROMPT + "\n\n" + TOOL_LOOP_INSTRUCTION,
-                    tools=[build_gemini_tool()], candidate_count=1,
+                    tools=[build_gemini_tool(allowed_tools if scope_ready else ["validate_comparison"])], candidate_count=1,
                     tool_config=types.ToolConfig(function_calling_config=mode),
                     automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
                 )
@@ -203,8 +234,13 @@ def run_investigation_tools(request: InvestigationRequest, *, client: PlanningCl
                 content = _response_content(response)
                 calls = [part.function_call for part in content.parts if part.function_call is not None]
                 if not calls:
-                    if not comparison_allowed:
+                    if not scope_ready:
                         raise _StopLoop("comparison_required", "Execute validate_comparison antes de finalizar ou analisar.")
+                    if single_mode and not any(isinstance(item, (
+                        FieldNdviEvidence, NdviChangeEvidence, OperationNdviEvidence,
+                        FieldPopulationEvidence, FieldApplicationEvidence,
+                    )) for item in evidence):
+                        raise _StopLoop("analysis_required", "Execute ao menos uma análise individual antes de finalizar.")
                     # Free-form model text is only a completion signal, never a report.
                     return finish("model_finished")
                 contents.append(content)  # Keep call IDs and thought signatures intact.
@@ -215,14 +251,29 @@ def run_investigation_tools(request: InvestigationRequest, *, client: PlanningCl
                         return finish("tool_limit")
                     if not isinstance(call.name, str) or call.name not in TOOLS:
                         raise _StopLoop("unknown_tool", "Ferramenta não permitida nesta investigação.")
-                    if not comparison_allowed and call.name != "validate_comparison":
+                    if call.name not in allowed_tools and not (not scope_ready and call.name == "validate_comparison"):
+                        raise _StopLoop("scope_mismatch", "A ferramenta não corresponde ao modo da investigação.")
+                    if not scope_ready and call.name != "validate_comparison":
                         raise _StopLoop("comparison_required", "Execute validate_comparison antes de qualquer análise.")
                     calls_used += 1
                     try:
                         result = recorder.run_tool(call.name, call.args)
-                    except (ToolCallValidationError, ToolExecutionError) as error:
-                        # A calculation failure stops the loop; the model must not fill gaps.
+                    except ToolCallValidationError as error:
                         raise _StopLoop(error.code, str(error)) from None
+                    except ToolExecutionError as error:
+                        gap = missing_data_gap_for_tool(call.name) if error.code == "analysis_unavailable" else None
+                        if gap is None or call.name == "validate_comparison":
+                            # Infrastructure, invalid results and preflight failures
+                            # remain fatal. Only unavailable optional analyses are partial.
+                            raise _StopLoop(error.code, str(error)) from None
+                        warning = gap.as_warning()
+                        if warning not in warnings:
+                            warnings.append(warning)
+                        responses.append(types.Part(function_response=types.FunctionResponse(
+                            id=call.id, name=call.name,
+                            response={"error": {"code": gap.code, "message": gap.explanation}},
+                        )))
+                        continue
                     evidence.append(result)
                     remaining()
                     if call.name == "validate_comparison":
@@ -232,6 +283,7 @@ def run_investigation_tools(request: InvestigationRequest, *, client: PlanningCl
                                 code="invalid_comparison", message="O par selecionado não permite esta comparação.",
                             ))
                         comparison_allowed = True
+                        scope_ready = True
                     responses.append(types.Part(function_response=types.FunctionResponse(
                         id=call.id, name=call.name, response={"output": result.model_dump(mode="json")},
                     )))
@@ -301,14 +353,20 @@ def synthesize_report(planning: ToolLoopResult, *, client: PlanningClient,
     if failure is not None:
         raise SynthesisError(failure)
     comparisons = [item for item in planning.evidence if isinstance(item, ComparisonEvidence)]
+    individual = [item for item in planning.evidence if isinstance(item, (
+        FieldNdviEvidence, NdviChangeEvidence, OperationNdviEvidence,
+        FieldPopulationEvidence, FieldApplicationEvidence,
+    ))]
     if (planning.stop_reason not in ("model_finished", "tool_limit") or planning.error is not None
-            or not comparisons or not all(item.allowed for item in comparisons)):
+            or (not individual and (not comparisons or not all(item.allowed for item in comparisons)))):
         raise SynthesisError(ToolCallError(
             code="synthesis_not_ready", message="A fase de ferramentas não permite iniciar a síntese.",
         ))
     try:
-        context = (build_repair_context(planning.evidence, planning.warnings, _repair_error.error, _repair_error.issues)
-                   if _repair_error is not None else build_synthesis_context(planning.evidence, planning.warnings))
+        context = (build_repair_context(planning.evidence, planning.warnings, _repair_error.error,
+                                        _repair_error.issues, planning.question, planning.analysis_mode)
+                   if _repair_error is not None else build_synthesis_context(
+                       planning.evidence, planning.warnings, planning.question, planning.analysis_mode))
         contents = [types.Content(role="user", parts=[types.Part.from_text(text=context)])]
         config = types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT + "\n\n" + SYNTHESIS_INSTRUCTION +
@@ -367,6 +425,8 @@ def run_investigation_draft(request: InvestigationRequest, *, client: PlanningCl
                                            _recorder=_recorder, _comparison=_comparison)
         if planning.stop_reason not in ("model_finished", "tool_limit") or planning.error is not None:
             return InvestigationDraft(planning=planning, error=planning.error)
+        if _recorder is not None:
+            _recorder.emit_progress("report_started", "Organizando os resultados em um relatório")
         try:
             report = synthesize_report(planning, client=client, settings=settings, _budget=budget)
         except SynthesisError as error:
@@ -407,37 +467,6 @@ class InvestigationError(RuntimeError):
         super().__init__(message)
 
 
-_FALLBACK_ERRORS = frozenset({
-    "missing_api_key", "authentication_error", "permission_denied", "model_not_found", "rate_limit",
-    "timeout", "unavailable", "network_error", "invalid_request", "configuration_error", "api_error",
-    "client_error", "invalid_response", "invalid_report", "invalid_report_evidence", "invalid_report_language",
-})
-
-
-def _local_plan(comparison: ComparisonEvidence, request: InvestigationRequest) -> list[tuple[str, dict]]:
-    """At most seven more calls after preflight, chosen from available analyses."""
-    args = request.model_dump(mode="json", exclude={"question"})
-    soil = {"dataset_id": str(request.dataset_id)}
-    available = set(comparison.available_analyses)
-    calls = []
-    if "summarize_soil_analysis" in available:
-        calls.append(("summarize_soil_analysis", {**soil, "measurement_group": "group_1"}))
-        if "compare_soil_measurement_groups" in available:
-            calls.append(("summarize_soil_analysis", {**soil, "measurement_group": "group_2"}))
-    if "compare_soil_measurement_groups" in available:
-        calls.append(("compare_soil_measurement_groups", soil))
-    if "compare_ndvi" in available:
-        calls.append(("compare_ndvi", args))
-    # This tool safely returns available=false when pre-planting data is absent.
-    calls.append(("check_initial_condition", args))
-    if "application_compliance" in available and comparison.common_operations:
-        operation = min(comparison.common_operations, key=lambda name: (name != "CALAGEM", name))
-        calls.append(("application_compliance", {**args, "operation": operation}))
-    if "compare_population" in available:
-        calls.append(("compare_population", args))
-    return calls
-
-
 def _accumulated_warnings(planning: ToolLoopResult) -> list[ValidationIssue]:
     warnings = [item.model_copy(deep=True) for item in planning.warnings]
     for evidence in planning.evidence:
@@ -449,72 +478,93 @@ def _accumulated_warnings(planning: ToolLoopResult) -> list[ValidationIssue]:
 
 
 def run_investigation(request: InvestigationRequest, *, client: PlanningClient | None = None,
-                      settings: Settings | None = None, store: SessionStore = dataset_store) -> InvestigationResponse:
-    """Synchronous public workflow: preflight, model/local analysis, valid report.
+                      settings: Settings | None = None, store: SessionStore = dataset_store,
+                      progress_sink: ProgressSink | None = None) -> InvestigationResponse:
+    """Synchronous legacy workflow that delivers only a Gemini-validated report.
 
-    Preflight counts against the same eight-call/time budget and seeds the model
-    loop. Fallback reuses facts after provider failures, even after the deadline;
-    only local template rendering/validation may run after timeout, never tools.
+    The dataset remains in the session after a provider failure, but deterministic
+    fallback is never published as if it were the requested final report.
     """
-    request = InvestigationRequest.model_validate(request.model_dump())
+    request = InvestigationRequest.model_validate({**request.model_dump(), "analysis_mode": request.analysis_mode})
     settings = (settings or get_settings()).model_copy(deep=True)
     budget = _GenerationBudget(settings.gemini_timeout_seconds)
-    recorder = InvestigationRecorder(request, model=client.model if client is not None else settings.gemini_model, store=store)
+    recorder = InvestigationRecorder(
+        request, model=client.model if client is not None else settings.gemini_model,
+        store=store, progress_sink=progress_sink,
+    )
     _, warnings = build_investigation_context(request, store.get(request.dataset_id), max_tool_calls=min(8, settings.gemini_max_tool_calls))
-    try:
-        budget.remaining()
-        comparison = recorder.run_tool("validate_comparison", request.model_dump(mode="json", exclude={"question"}))
-    except (ToolCallValidationError, ToolExecutionError) as error:
-        raise InvestigationError(error.code, str(error)) from None
-    except _StopLoop:
-        raise InvestigationError("timeout", "O prazo terminou antes de obter evidências para o relatório.") from None
-    assert isinstance(comparison, ComparisonEvidence)
-    if not comparison.allowed:
-        labels = {"same_crop": "culturas incompatíveis", "same_purpose": "finalidades incompatíveis"}
-        reasons = [labels[item.id] for item in comparison.criteria if item.id in labels and item.satisfied is False]
-        raise InvestigationError("invalid_comparison", "Par incompatível: " + "; ".join(reasons or ["os manejos precisam ser conhecidos e distintos"]) + ".", 422)
-    planning = ToolLoopResult(investigation_id=recorder.investigation_id, stop_reason="model_finished",
-                              evidence=[comparison], trace=recorder.snapshot(), warnings=warnings)
-    report = None
-    fallback_reason = "missing_api_key"
-    if client is None and not settings.gemini_configured:
+    comparison = None
+    if request.analysis_mode == "comparison":
+        comparison_args = {
+            "dataset_id": str(request.dataset_id), "target_field_id": request.target_field_id,
+            "reference_field_id": request.reference_field_id, "period": request.model_dump(mode="json")["period"],
+        }
         try:
-            for name, arguments in _local_plan(comparison, request):
-                if len(recorder.snapshot().calls) >= min(8, settings.gemini_max_tool_calls):
-                    planning.stop_reason = "tool_limit"
-                    break
-                budget.remaining()
-                planning.evidence.append(recorder.run_tool(name, arguments))
-                budget.remaining()
-        except _StopLoop:
-            planning.stop_reason = "timeout"
-            fallback_reason = "timeout"
+            budget.remaining()
+            comparison = recorder.run_tool("validate_comparison", comparison_args)
         except (ToolCallValidationError, ToolExecutionError) as error:
-            # Calculation failures stop the investigation, not an invitation to
-            # the model or templates to fill missing results.
             raise InvestigationError(error.code, str(error)) from None
-        planning.trace = recorder.snapshot()
+        except _StopLoop:
+            raise InvestigationError("timeout", "O prazo terminou antes de obter evidências para o relatório.") from None
+        assert isinstance(comparison, ComparisonEvidence)
+        if not comparison.allowed:
+            labels = {"same_crop": "culturas incompatíveis", "same_purpose": "finalidades incompatíveis"}
+            reasons = [labels[item.id] for item in comparison.criteria if item.id in labels and item.satisfied is False]
+            raise InvestigationError("invalid_comparison", "Par incompatível: " + "; ".join(reasons or ["os manejos precisam ser conhecidos e distintos"]) + ".", 422)
+    planning = ToolLoopResult(investigation_id=recorder.investigation_id, stop_reason="model_finished",
+                              evidence=[comparison] if comparison is not None else [], trace=recorder.snapshot(), warnings=warnings,
+                              question=request.question, analysis_mode=request.analysis_mode)
+    report = None
+    recorder.emit_progress("planning", "Escolhendo as análises compatíveis com a pergunta e os dados")
+    if client is None and not settings.gemini_configured:
+        raise InvestigationError(
+            "missing_api_key",
+            "O relatório precisa do Gemini. Configure ao menos uma chave e tente novamente; o dataset foi preservado.",
+            503,
+        )
     else:
         draft = run_investigation_draft(request, client=client, settings=settings, store=store,
                                         _budget=budget, _recorder=recorder, _comparison=comparison)
         planning, report = draft.planning, draft.report
         if report is None:
-            if draft.error is None or draft.error.code not in _FALLBACK_ERRORS:
-                error = draft.error or ToolCallError(code="investigation_failed", message="Não foi possível concluir a investigação.")
-                raise InvestigationError(error.code, error.message)
-            fallback_reason = draft.error.code
+            error = draft.error or ToolCallError(
+                code="investigation_failed", message="Não foi possível concluir a investigação."
+            )
+            status = {
+                "authentication_error": 401,
+                "permission_denied": 403,
+                "rate_limit": 429,
+                "timeout": 504,
+                "invalid_report": 502,
+                "invalid_report_evidence": 502,
+                "invalid_report_language": 502,
+                "invalid_response": 502,
+            }.get(error.code, 503)
+            raise InvestigationError(
+                error.code,
+                error.message + " O dataset foi preservado para uma nova tentativa.",
+                status,
+            )
     warnings = _accumulated_warnings(planning)
     if report is None:
-        fallback = build_fallback_report(planning.evidence, warnings, reason=fallback_reason)
-        report, warnings, origin = fallback.report, fallback.warnings, fallback.generated_by
-    else:
-        origin = ReportOrigin.GEMINI
+        raise InvestigationError(
+            "investigation_failed",
+            "Não foi possível produzir um relatório validado. O dataset foi preservado para uma nova tentativa.",
+        )
+    origin = ReportOrigin.GEMINI
+    recorder.emit_progress("completed", "Investigação concluída")
     return InvestigationResponse(
-        investigation_id=planning.investigation_id, status="completed", generated_by=origin, report=report,
+        investigation_id=planning.investigation_id, question=request.question,
+        status="completed", generated_by=origin, report=report,
         evidence=planning.evidence, trace=planning.trace, warnings=warnings,
         chart_data=InvestigationChartData(
             ndvi=next((item for item in planning.evidence if isinstance(item, NdviEvidence)), None),
+            field_ndvi=next((item for item in planning.evidence if isinstance(item, FieldNdviEvidence)), None),
+            ndvi_tests=[item for item in planning.evidence if isinstance(item, PairedNdviTestEvidence)],
+            ndvi_changes=[item for item in planning.evidence if isinstance(item, NdviChangeEvidence)],
+            operation_ndvi=[item for item in planning.evidence if isinstance(item, OperationNdviEvidence)],
             soil_summaries=[item for item in planning.evidence if isinstance(item, SoilSummaryEvidence)],
             soil_groups=[item for item in planning.evidence if isinstance(item, SoilGroupsEvidence)],
+            soil_tests=[item for item in planning.evidence if isinstance(item, SoilStatisticalEvidence)],
         ),
     ).model_copy(deep=True)

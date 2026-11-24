@@ -1,6 +1,6 @@
 # Pipelines — FarmLab Investigator
 
-Este documento descreve os fluxos do MVP. Os diagramas usam Mermaid e devem permanecer alinhados ao `SPEC.md`.
+Este documento descreve os fluxos do produto. Os diagramas usam Mermaid e devem permanecer alinhados ao `SPEC.md`.
 
 ## 1. Arquitetura geral
 
@@ -21,7 +21,7 @@ flowchart TB
 Responsabilidades:
 
 - o frontend coleta arquivos e escolhas, mostra progresso e renderiza a resposta;
-- o frontend também oferece prévias locais e rotuladas das telas futuras, sem confundi-las com resultados calculados;
+- o frontend libera Comparação e Investigação somente depois da importação dos CSVs e do resultado real;
 - a API valida requisições e mantém o estado temporário;
 - as ferramentas calculam as métricas;
 - o Gemini decide quais ferramentas usar e organiza a explicação;
@@ -58,25 +58,23 @@ sequenceDiagram
     W-->>U: Mostra visão geral e detalhes
 ```
 
-## 2.1 Fluxo temporário das prévias de interface
+## 2.1 Liberação das áreas analíticas
 
 ```mermaid
 flowchart LR
-    D["Aba Dados"] --> C["Prévia de Comparação"]
-    C --> I["Prévia de Investigação"]
-    I --> C
-    C --> M["Mocks locais do frontend"]
-    I --> M
-    M -. "não chama" .-> X["API de investigação"]
+    D["Importar os sete CSVs"] --> V{"Pacote válido?"}
+    V -- "Não" --> D
+    V -- "Sim" --> C["Comparação com dados importados"]
+    C --> A["API de investigação"]
+    A --> I["Investigação com evidências calculadas"]
 ```
 
-Regras do fluxo temporário:
+Regras do fluxo:
 
-- a navegação entre as três áreas é clicável independentemente do backend de investigação;
-- Comparação e Investigação exibem o selo **Prévia · dados demonstrativos**;
-- os mocks existem somente para validar layout, responsividade e interação;
-- a importação real continua usando a API; as prévias não escrevem no store nem alteram `dataset_id`;
-- quando as Semanas 2 a 4 conectarem dados reais, os componentes visuais devem ser reaproveitados e os mocks removidos do caminho de produção.
+- Comparação permanece bloqueada até a validação do pacote;
+- Investigação permanece bloqueada até existir um relatório concluído;
+- nenhum talhão, número, gráfico ou evidência é exibido antes de vir dos CSVs e das APIs;
+- fixtures analíticas existem somente na suíte de testes, fora do código de produção.
 
 ## 3. Pipeline de importação
 

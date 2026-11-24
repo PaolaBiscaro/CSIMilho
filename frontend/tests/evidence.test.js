@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { expect, it } from 'vitest'
-import fixture from '../src/mocks/analytics-preview.json'
+import fixture from './fixtures/analytics-result.json'
 import { createEvidencePanel } from '../src/ui/evidence.js'
 import { formatValue } from '../src/ui/dom.js'
 
@@ -65,7 +65,7 @@ it('shows soil statistics and paired values without assigning them to target or 
   expect(cards[1].querySelector('summary').textContent).toContain('delta mediano -0,1234')
   expect(values(cards[1].querySelector('tbody tr'))).toEqual([groups.metrics[0].pairs[0].sample_id,
     ...['group_1', 'group_2', 'delta'].map((key) => formatValue(groups.metrics[0].pairs[0][key]))])
-  expect(panel.textContent).toContain('sem vínculo documentado com talhão')
+  expect(panel.textContent).toContain('Amostras do pacote importado')
   expect(JSON.stringify([summary, groups])).toBe(snapshot)
 })
 

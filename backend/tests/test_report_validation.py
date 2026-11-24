@@ -15,12 +15,30 @@ from tests.test_analytics import analytical_dataset
 from tests.test_call_validators import comparison_args, context
 
 
+FACT_TOOLS = (
+    "validate_comparison",
+    "compare_ndvi",
+    "check_initial_condition",
+    "compare_population",
+    "application_compliance",
+    "summarize_soil_analysis",
+    "compare_soil_measurement_groups",
+)
+
+
 @pytest.fixture
 def facts(context):
     request, store = context
     ids = EvidenceIdGenerator()
-    return {name: execute_tool(name, {"dataset_id": str(request.dataset_id)} if "soil" in name else comparison_args(request),
-                               store=store, ids=ids) for name in TOOLS}
+    return {
+        name: execute_tool(
+            name,
+            {"dataset_id": str(request.dataset_id)} if "soil" in name else comparison_args(request),
+            store=store,
+            ids=ids,
+        )
+        for name in FACT_TOOLS
+    }
 
 
 def report_for(evidence, text=None, ids=None, warnings=()):
@@ -211,6 +229,19 @@ def test_limitations_follow_available_evidence_and_quality(facts):
     initial = facts["check_initial_condition"].model_copy(update={"available": False, "different": None, "mean_gap": None})
     rules = {item.rule_id for item in required_limitations([initial])}
     assert "initial_condition_unavailable" in rules and "initial_condition_different" not in rules
+
+
+def test_capability_gap_becomes_required_limitation(facts):
+    warning = ValidationIssue(
+        code="analysis_missing_tooling_requested_hypothesis_method",
+        message="Texto externo não deve substituir o catálogo confiável.",
+    )
+    limitations = required_limitations([facts["compare_ndvi"]], [warning])
+    matched = [item for item in limitations if item.rule_id == warning.code]
+    assert len(matched) == 1
+    assert matched[0].title == "Ferramenta ausente — método estatístico solicitado"
+    assert "teste exato pareado" in matched[0].explanation
+    assert "Texto externo" not in matched[0].explanation
 
 
 def test_all_tools_valid_report_and_no_input_mutation(facts):

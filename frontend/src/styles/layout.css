@@ -170,7 +170,6 @@
     grid-template-columns: 1fr;
   }
 
-  .header-session span:last-child,
   .brand__text small {
     display: none;
   }

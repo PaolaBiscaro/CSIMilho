@@ -1,4 +1,4 @@
-import { chartColors, createChartController, distributionConfig, ndviConfig, pairedSoilConfig, textureConfig } from '../charts/analytics-charts.js'
+import { chartColors, createChartController, distributionConfig, fieldNdviConfig, ndviConfig, pairedSoilConfig, textureConfig } from '../charts/analytics-charts.js'
 import { control, element, formatDate, formatValue, table } from './dom.js'
 
 const FAMILIES = { textura: 'Textura', acidez_fertilidade: 'Acidez e fertilidade', bases: 'Bases', micronutrientes: 'Micronutrientes' }
@@ -28,9 +28,20 @@ export function createInvestigationNdviPanel(chartData, fields = []) {
   const panel = element('section', 'analytical-panel')
   panel.append(element('h2', '', 'Gráfico NDVI'))
   const source = chartData.ndvi
+  const fieldSource = chartData.field_ndvi
   const controllers = []
-  if (!source) {
+  if (!source && !fieldSource) {
     panel.append(element('p', 'empty-chart', 'NDVI indisponível: a análise não foi retornada nesta investigação.'))
+  } else if (fieldSource) {
+    const fieldLabel = fields.find((field) => field.field_id === fieldSource.field_id)?.label ?? fieldSource.field_id
+    panel.append(graphic('Trajetória NDVI do talhão', `${formatValue(fieldSource.observations)} datas · média ${formatValue(fieldSource.mean_ndvi)} · mudança total ${formatValue(fieldSource.total_change)} · ${unit(fieldSource.unit)}`,
+      fieldSource, fieldNdviConfig(fieldSource, fieldLabel, chartColors()),
+      table('Série NDVI · valores recebidos', ['Data', 'NDVI', 'Mudança desde a data anterior'],
+        fieldSource.series.map((point) => [formatDate(point.date), formatValue(point.ndvi), formatValue(point.change_from_previous)])), controllers))
+    panel.append(element('p', 'chart-hint', fieldSource.abrupt_changes.length
+      ? `${formatValue(fieldSource.abrupt_changes.length)} mudança(s) ultrapassaram o limiar operacional de ${formatValue(fieldSource.abrupt_change_threshold)}.`
+      : `Nenhuma mudança ultrapassou o limiar operacional de ${formatValue(fieldSource.abrupt_change_threshold)}.`))
+    for (const warning of fieldSource.warnings ?? []) panel.append(element('p', 'chart-hint', warning))
   } else {
     const fieldLabel = (id) => fields.find((field) => field.field_id === id)?.label ?? id
     const labels = { target: `Alvo · ${fieldLabel(source.target_field_id)}`, reference: `Referência · ${fieldLabel(source.reference_field_id)}` }
@@ -70,8 +81,8 @@ function soilCollection(sources, paired) {
     destroy(controllers)
     const source = selectedSource()
     const selected = source.metrics.find((item) => item.name === metric.select.value)
-    notices.replaceChildren(...[...source.warnings, ...source.limitations].map((text) => element('p', '', text)))
-    quality.textContent = paired ? `${formatValue(source.sample_count)} amostras no dataset · delta = Conjunto 2 − Conjunto 1`
+    notices.replaceChildren(...source.warnings.map((text) => element('p', '', text)))
+    quality.textContent = paired ? `${formatValue(source.sample_count)} amostras no pacote · delta = Conjunto 2 − Conjunto 1`
       : `${groupName(source)} · ${formatValue(source.sample_count)} amostras · completude do recorte: ${source.completeness_percent == null ? 'Indisponível' : `${formatValue(source.completeness_percent)}%`} · ${formatValue(source.valid_values)} de ${formatValue(source.expected_values)} valores`
     charts.replaceChildren()
     const colors = chartColors()
@@ -116,7 +127,7 @@ function soilCollection(sources, paired) {
 export function createInvestigationSoilPanel(chartData) {
   const panel = element('section', 'analytical-panel')
   panel.append(element('h2', '', 'Solo'), element('p', 'soil-summary',
-    'Escopo geral do dataset, sem vínculo com os talhões. O sufixo _2 não tem significado documentado. Mapa, tendência temporal e perfil de profundidade indisponíveis: faltam coordenadas, datas e profundidades. Não há classificação agronômica.'))
+    'Amostras do pacote importado, sem associação aos talhões selecionados.'))
   const summaries = soilCollection(chartData.soil_summaries ?? [], false)
   const pairs = soilCollection(chartData.soil_groups ?? [], true)
   panel.append(summaries, pairs)

@@ -101,16 +101,6 @@ def test_command_with_simulated_provider_validates_and_saves_complete_report(mon
     assert "test-secret" not in artifact.read_text(encoding="utf-8")
 
 
-def test_fallback_is_saved_but_never_passes_live_gate(monkeypatch, capsys):
-    enable_fake_key(monkeypatch)
-    result = local_result()
-    monkeypatch.setattr(smoke, "run_investigation", lambda *args, **kwargs: result)
-    assert smoke.main([]) == 1
-    summary = json.loads(capsys.readouterr().out)
-    assert not summary["passed"] and summary["generated_by"] == "deterministic_fallback"
-    assert Path(summary["report_path"]).is_file()
-
-
 def test_successful_report_without_soil_does_not_pass_scenario():
     summary = smoke.inspect_result(local_result(client=SmokeClient(include_soil=False)))
     assert not summary["passed"] and summary["missing_required_tools"] == ["summarize_soil_analysis"]

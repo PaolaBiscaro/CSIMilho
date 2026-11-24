@@ -1,104 +1,96 @@
-# Roteiro da demonstração — W4.14
+# Roteiro de demonstração do FarmLab
 
-Ensaio de 18/10/2026. Meta: concluir a parte interativa em até dois minutos após selecionar os sete arquivos. O pacote definido para este roteiro é **sintético**; a fala deve identificá-lo assim. A demonstração mostra o funcionamento do sistema, não resultados científicos da área real.
+Este roteiro usa exclusivamente o pacote sintético aprovado em `demo-data/apresentacao-sintetica` ou, se essa cópia não existir, os sete arquivos de `backend/tests/fixtures/manual`. A apresentação demonstra o funcionamento da ferramenta; os resultados não representam uma área agrícola real.
 
-## Preparar antes da banca
+## Preparação antes da apresentação
 
-1. Abra o projeto em `C:\Users\souza\CSIMilho`.
-2. Deixe o Explorador em `C:\Users\souza\CSIMilho\demo-data\apresentacao-sintetica`. Essa pasta já contém exatamente os sete CSVs, copiados sem alteração de `backend/tests/fixtures/manual/`.
-3. Compile e inicie o servidor em um PowerShell novo, com a chave já configurada no backend:
+1. Configure de uma a três chaves no arquivo `.env` do backend:
+
+```text
+GEMINI_API_KEY=chave_principal
+GEMINI_API_KEY_2=chave_reserva_opcional
+GEMINI_API_KEY_3=chave_reserva_opcional
+GEMINI_TIMEOUT_SECONDS=90
+```
+
+As chaves 2 e 3 são opcionais, mas recomendadas para a apresentação. O backend troca de chave durante qualquer interação que falhar por credencial, cota, rede ou indisponibilidade. Nenhuma chave é enviada ao navegador ou gravada no relatório.
+
+2. Em um PowerShell, compile o frontend e inicie o backend:
 
 ```powershell
-cd C:\Users\souza\CSIMilho\frontend
-pnpm build
+cd C:\Users\heloi\pasta-centralizada-heloisa\faculdade\fabrica-projetos-ageis\projeto-farmlab\frontend
+npm run build
 cd ..\backend
-$env:APP_ENV = 'development'
-$env:GEMINI_TIMEOUT_SECONDS = '75'
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Os ajustes valem para esse terminal/processo, sem editar `.env`. Feche o terminal ao terminar. Mantenha um processo por sessão; não reinicie o servidor nem recarregue a página depois do upload, pois os dados e relatórios são temporários.
+3. Abra `http://127.0.0.1:8000/` e confirme que o backend está conectado.
+4. Use **Testar Gemini**. Esse teste verifica a conexão, mas a investigação completa ainda depende da cota disponível.
+5. Importe os sete CSVs e valide o pacote. O resultado esperado para o fixture atual é qualidade 85/100, status com avisos e quatro talhões.
+6. Deixe abertos os relatórios-reserva validados em `demo-data/relatorios-reserva/phase7-single_field_temporal.html` e `demo-data/relatorios-reserva/phase7-soil_operations_vigor.html`. Eles devem ser apresentados como resultados salvos de ensaios, nunca como execuções ao vivo.
 
-4. Abra `http://127.0.0.1:8000/`. Antes de iniciar o cronômetro, confira **Backend: Conectado** e use **Testar Gemini**. Configuração detectada não garante que a investigação inteira será válida. O teste faz uma chamada curta à API.
-5. Deixe a pergunta abaixo pronta para colar. Confira a pasta de downloads e os relatórios de reserva antes da apresentação.
+## Fluxo principal na tela
 
-### Pacote exato
+1. Selecione os sete CSVs e valide o pacote.
+2. Continue para o chat analítico.
+3. Faça uma pergunta e clique em **Enviar pergunta**.
+4. Durante o processamento, mostre o tempo decorrido. Abra **Ver detalhes da análise** somente se quiser exibir os eventos operacionais: intenção identificada, ferramentas selecionadas, evidências calculadas e síntese em andamento. Esses eventos não expõem o raciocínio interno nem as chaves.
+5. No relatório, comece pela aba **Resposta**. Leia primeiro o bloco destacado que responde diretamente à pergunta.
+6. Mostre os insights e gráficos como sustentação da resposta. Não leia tabelas de números como se fossem conclusão.
+7. Abra **Detalhes técnicos** para mostrar testes, métodos, fontes, evidências e limitações.
+8. Baixe o relatório HTML, se solicitado. O arquivo é autocontido e preparado para impressão A4.
 
-| Arquivo | Bytes |
-| --- | ---: |
-| fields.csv | 795 |
-| service_orders.csv | 119 |
-| ndvi_metadata.csv | 578 |
-| LAYER_MAP_PLANTING.csv | 376 |
-| LAYER_MAP_FERTILIZATION.csv | 414 |
-| service_orders_fields.csv | 147 |
-| soil_analysis.csv | 422 |
+## Perguntas para demonstrar
 
-Total: **2.851 bytes**. Resultado esperado: qualidade **85/100**, quatro talhões, **duas amostras de solo**, zero erros e três avisos (nome normalizado, unidades de solo não documentadas e produtividade ausente). O par Grão tem **3/5 critérios**, uma data NDVI pareada e condição inicial indisponível. Esses avisos são parte da explicação, não falha do upload.
+### 1. Conhecer os dados
 
-Se a pasta local não existir em outra máquina, execute na raiz do projeto:
+> Quais tipos de dados estão disponíveis neste pacote?
 
-```powershell
-New-Item -ItemType Directory -Force demo-data/apresentacao-sintetica
-Copy-Item -Path backend/tests/fixtures/manual/*.csv -Destination demo-data/apresentacao-sintetica
-```
+Resposta esperada: catálogo objetivo dos arquivos e informações disponíveis, sem transformar a pergunta em investigação.
 
-### Pergunta do ensaio
+### 2. Conhecer as capacidades
 
-> Compare o NDVI e a condição inicial dos talhões. Resuma também o solo no escopo do dataset, sem atribuí-lo aos talhões. Considere população e calagem quando disponíveis e explicite as limitações.
+> O que a ferramenta consegue analisar com estes dados?
 
-## Cliques e fala principal
+Resposta esperada: descrição das análises descritivas, temporais, comparativas e testes disponíveis, separando o que os dados atuais permitem do que exigiria outras informações.
 
-Os tempos abaixo são um orçamento para o apresentador, contado desde a seleção. Avance assim que cada resultado estiver disponível; não espere o fim da janela. A fala durante o processamento ocorre em paralelo à espera.
+### 3. Descrição de um talhão
 
-| Janela alvo | Ação | Fala sugerida |
-| --- | --- | --- |
-| 0–7 s | Selecionar os sete CSVs → **Validar pacote**. | “Este pacote é sintético. O sistema valida os arquivos, identifica os talhões e informa as limitações antes da análise.” |
-| 7–12 s | **Continuar**. Manter Grão 4.0 × Grão Convencional, Safra completa. Colar a pergunta → **Executar investigação**. | “Vamos comparar manejos da mesma cultura e finalidade. A cobertura é limitada: temos uma data de NDVI.” |
-| Até 87 s | Aguardar a geração, sem clicar novamente. | “As ferramentas calculam os indicadores. O Gemini organiza a investigação e a narrativa, que é validada contra as evidências. O solo representa o dataset inteiro, sem vínculo com talhões ou profundidades.” |
-| Até 94 s | **Visão geral**: apontar a origem e a força da evidência. | Usar uma das falas de origem abaixo. Não ler o resumo inteiro. |
-| Até 101 s | **Solo**: apontar conjuntos e métricas. | “Os conjuntos são grupos de medição. Não temos unidades e referências suficientes para prescrever adubação.” |
-| Até 107 s | **Gráfico NDVI**. | “Neste exemplo, ambos têm NDVI 0,5 e gap zero. Isso não mede produtividade nem prova efeito do manejo.” |
-| Até 113 s | **Evidências** → **Métodos** → **Limitações**, apontando uma referência. | “Cada achado remete a evidências e métodos. As limitações permanecem explícitas.” |
-| Até 120 s | **Baixar relatório HTML** → **Nova comparação**. Encerrar com o formulário habilitado. | “O relatório pode ser consultado depois. Podemos comparar novamente sem reenviar os arquivos.” |
+> Descreva as informações de vigor disponíveis para o talhão Grão 4.0.
 
-**Se aparecer Resultado do Gemini:** “Esta narrativa foi gerada pelo Gemini e passou pelas validações. Os números vêm das ferramentas analíticas.”
+Resposta esperada: resumo descritivo, sem inventar teste de hipótese ou comparação.
 
-**Se aparecer Relatório local · fallback:** “A geração automática não pôde ser aproveitada. O sistema informa o motivo e apresenta um relatório local com as evidências disponíveis. Não estamos apresentando esse texto como uma resposta do Gemini.”
+### 4. Investigação de um único talhão
 
-O tempo de geração e a cobertura das ferramentas podem variar. Não prometa oito chamadas, um título específico ou origem Gemini em toda execução. Se o resultado chegar perto do limite, priorize origem, solo, NDVI, limitações e download; deixe os detalhes dos métodos para perguntas. Não inicie uma terceira investigação durante a fala principal.
+> Na série temporal de NDVI do talhão Grão 4.0, houve mudanças bruscas ou divergências relevantes durante a safra?
 
-## Ensaio e plano de reserva
+Resposta esperada: relatório Top-Down explicando que existe apenas uma observação válida e que a série não sustenta a detecção de mudanças. A insuficiência é dos dados, não do ferramental.
 
-Para ensaiar o fallback sem mexer na chave salva, abra **outro PowerShell novo** e execute:
+### 5. Investigação combinada
 
-```powershell
-cd C:\Users\souza\CSIMilho\backend
-$env:APP_ENV = 'development'
-$env:GEMINI_TIMEOUT_SECONDS = '45'
-$env:GEMINI_API_KEY = ''
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8001
-```
+> O que as análises de solo indicam sobre o contexto da área e quais sinais aparecem na execução de correção e no vigor dos talhões Grão 4.0 e Grão Convencional?
 
-Abra `http://127.0.0.1:8001/` em outra aba e repita o roteiro. O painel mostrará Gemini não configurado e o teste ficará desabilitado; a investigação local continua disponível. É uma sessão independente: será necessário importar o pacote nessa aba. Fechar esse terminal não altera a chave no `.env`.
+Resposta esperada: separar claramente três partes. Solo é contexto geral do dataset, porque não existe vínculo entre amostras e talhões. Operações e vigor podem ser descritos ou comparados apenas na cobertura disponível. Qualquer parte não sustentada deve aparecer identificada no início do relatório.
 
-Se não houver tempo para reiniciar ou se o servidor falhar, use os arquivos já baixados em `C:\Users\souza\CSIMilho\demo-data\relatorios-reserva`:
+## Fala curta sugerida
 
-- `gemini-sintetico.html`: resultado Gemini deste ensaio.
-- `fallback-sintetico.html`: resultado local sem chave deste ensaio.
+“O FarmLab aceita perguntas descritivas e investigativas. Primeiro ele identifica o que foi pedido; depois seleciona os módulos analíticos compatíveis com os dados, calcula as evidências e só então usa o Gemini para organizar uma resposta executiva. O primeiro bloco responde diretamente à pergunta. Abaixo ficam os insights e gráficos, e os detalhes técnicos mostram como a conclusão foi obtida. Quando faltam dados, a resposta informa quais dados faltam. Quando falta uma ferramenta, informa qual capacidade ainda não existe.”
 
-Abra-os manualmente no navegador do computador antes da banca. Diga: “Este é um resultado salvo do ensaio com dados sintéticos.” Não apresente um arquivo de reserva como execução ao vivo. A abertura visual offline ainda precisa dessa conferência manual: o navegador integrado usado no teste bloqueia URLs `file:`. Os downloads reais foram confirmados e os HTMLs são autocontidos.
+## Comportamento correto em falhas
 
-## Medições registradas
+- Se uma chave falhar e outra estiver configurada, o backend tenta a próxima dentro do mesmo limite total de 90 segundos.
+- Se todas as chaves falharem, o relatório investigativo é bloqueado. O sistema preserva o dataset e permite tentar novamente sem novo upload.
+- Não existe relatório local de contingência apresentado como resposta do Gemini.
+- Se a pergunta estiver apenas parcialmente sustentada, o relatório responde a parte possível e destaca separadamente o que não pôde ser respondido.
+- O botão pode ser cancelado durante o processamento e deve ser liberado após sucesso, erro, timeout ou cancelamento.
 
-| Ensaio | Resultado visível após seleção | Percurso completo | Resultado |
-| --- | ---: | ---: | --- |
-| Gemini configurado, limite 75 s | 36,1 s | **60,4 s** | Gemini |
-| Sem chave, limite 45 s | 1,1 s | **42,6 s** | Fallback local |
-| Gemini configurado, limite 45 s | 45,0 s | **59,7 s** | Fallback por timeout |
+## Reserva e transparência
 
-O percurso completo inclui validação, comparação, pergunta, investigação, passagem pelas seis abas, download e retorno a Nova comparação. Cronômetro iniciado após o seletor aceitar os arquivos; servidor, build e health preparados antes. Tempos de parede do navegador automatizado, incluindo chamadas da automação e captura; **não incluem uma pessoa falando**. São três amostras, não garantia de desempenho. O roteiro reserva fala durante a espera e uma passagem curta pelos resultados; faça um ensaio oral com cronômetro antes da banca.
+Os relatórios-reserva aprovados são:
 
-Nenhum erro ou aviso de console foi capturado. Os três downloads concluíram e a sessão voltou a permitir outra comparação. Configuração de 75 s sugerida para o percurso principal; 45 s é uma alternativa mais curta, com maior chance de fallback. O limite de geração não cobre upload, download ou problemas de conexão entre navegador e backend.
+- `demo-data/relatorios-reserva/phase7-single_field_temporal.html`
+- `demo-data/relatorios-reserva/phase7-soil_operations_vigor.html`
 
-Evidências locais em `backend/.local/w4-14/`: `gemini-timing.json`, `fallback-timing.json`, `live-timing.json`, capturas e `package-manifest.json` com SHA-256 dos sete arquivos. Dados copiados e relatórios de reserva estão ignorados pelo Git. A chave não foi alterada; servidores temporários foram encerrados. Versão congelada na W4.15: tag local `apresentacao-w4-2026-10-18`. Consulte [CONGELAMENTO_APRESENTACAO.md](CONGELAMENTO_APRESENTACAO.md).
+Eles foram gerados com o pacote sintético e não contêm scripts nem recursos externos. A investigação individual concluiu em 17,079 segundos e a combinada em 74,947 segundos. Não apresente uma reserva como resultado recém-gerado.
+
+Antes da banca, faça uma execução completa com as chaves que serão usadas no dia, revise o conteúdo com a pessoa responsável pelo domínio e confirme visualmente em tela de projetor.

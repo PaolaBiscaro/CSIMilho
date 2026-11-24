@@ -4,6 +4,7 @@ import { table } from '../src/ui/dom.js'
 import { createUploadView, EXPECTED_FILES } from '../src/ui/upload.js'
 import { createComparisonView } from '../src/ui/comparison.js'
 import { resetStateForTests } from '../src/state.js'
+import fixture from './fixtures/analytics-result.json'
 
 afterEach(() => { document.body.replaceChildren(); resetStateForTests(); vi.unstubAllGlobals() })
 
@@ -18,13 +19,15 @@ it('makes wide evidence tables named keyboard-scrollable regions with header ass
   expect(region.querySelector('tbody th').scope).toBe('row')
 })
 
-it('exposes criteria details without hover and associates question instructions', () => {
-  const view = createComparisonView(vi.fn())
+it('exposes criteria details without hover and associates question instructions', async () => {
+  const dataset = { ...fixture.dataset, dataset_id: 'dataset-test' }
+  const pair = fixture.comparisons['103144:103145'].validation
+  const view = createComparisonView(vi.fn(), { dataset, diagnose: async () => pair })
   document.body.append(view)
-  expect(view.querySelectorAll('.criterion-detail').length).toBeGreaterThan(0)
+  await vi.waitFor(() => expect(view.querySelectorAll('.criterion-detail').length).toBeGreaterThan(0))
   expect(view.querySelector('.criteria-list li').hasAttribute('title')).toBe(false)
   const question = view.querySelector('textarea')
-  expect(view.querySelector(`#${question.getAttribute('aria-labelledby')}`).textContent).toBe('Pergunta para a investigação')
+  expect(view.querySelector(`#${question.getAttribute('aria-labelledby')}`).textContent).toBe('Pergunta para os dados')
   for (const id of question.getAttribute('aria-describedby').split(' ')) expect(view.querySelector(`#${id}`)).not.toBeNull()
   expect(view.querySelector('#question-hint').textContent).toContain('10 e 500')
   view.dispose()

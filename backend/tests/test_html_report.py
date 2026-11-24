@@ -16,6 +16,10 @@ from app.reports.store import ReportStore
 from tests.test_analytics import analytical_dataset
 from tests.test_call_validators import context
 from tests.test_gemini_client import settings
+from tests.test_orchestrator import FakeClient
+from tests.test_synthesis import (
+    base_report_payload, planning, report_payload, report_response, planned_responses,
+)
 
 
 class Document(HTMLParser):
@@ -33,8 +37,9 @@ class Document(HTMLParser):
 
 
 @pytest.fixture
-def completed(context):
-    return run_investigation(context[0], store=context[1], settings=settings(GEMINI_API_KEY=None))
+def completed(context, report_payload):
+    client = FakeClient(*planned_responses(context[0])[1:], report_response(report_payload))
+    return run_investigation(context[0], client=client, store=context[1], settings=settings())
 
 
 @pytest.mark.parametrize("origin", ["gemini", "deterministic_fallback"])
@@ -53,10 +58,13 @@ def test_self_contained_report_has_required_sections_and_offline_tables(complete
     assert {"overview", "evidence", "limitations", "methods"} <= ids
     assert CSP in [value for _, value in document.attributes]
     visible = " ".join(document.content)
-    for word in ("Achados", "Recomendações", "Modelo configurado", "UTC", "Série NDVI pareada", "Textura normalizada", "Conjunto 2", "ndvi_metadata.csv"):
+    for word in (
+        "Resposta", "Principais insights", "Modelo configurado", "UTC",
+        "Série NDVI pareada", "ndvi_metadata.csv",
+    ):
         assert word in visible
     assert str(completed.investigation_id) in visible
-    assert "Fallback determinístico" in visible if origin == "deterministic_fallback" else "Origem Gemini" in visible
+    assert "Geração de contingência" in visible if origin == "deterministic_fallback" else "Origem Gemini" in visible
 
 
 def test_all_external_text_is_escaped_including_attributes_and_closing_tags(completed):
@@ -129,10 +137,10 @@ def test_store_is_immutable_bounded_and_session_only(completed):
         store.get(third)
 
 
-def test_post_then_download_has_safe_headers_and_does_not_rerun_investigation(context, monkeypatch):
+def test_post_then_download_has_safe_headers_and_does_not_rerun_investigation(completed, context, monkeypatch):
     monkeypatch.setattr(investigations, "dataset_store", context[1])
-    monkeypatch.setattr(investigations, "get_settings", lambda: settings(GEMINI_API_KEY=None))
     monkeypatch.setattr(investigations, "report_store", ReportStore())
+    monkeypatch.setattr(investigations, "run_investigation", lambda *args, **kwargs: completed)
     with TestClient(create_app()) as client:
         response = client.post("/api/investigations", json=context[0].model_dump(mode="json"))
         assert response.status_code == 200

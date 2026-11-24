@@ -16,6 +16,8 @@ export function hasConsistentChartData(data, evidence) {
     && new Set(items.map((item) => item?.evidence_id)).size === items.length
     && items.every((item) => matches(item) && predicate(item))
   return (data.ndvi == null || (matches(data.ndvi) && Array.isArray(data.ndvi.series)))
+    && (data.field_ndvi == null || (matches(data.field_ndvi) && typeof data.field_ndvi.field_id === 'string'
+      && Array.isArray(data.field_ndvi.series) && Array.isArray(data.field_ndvi.abrupt_changes)))
     && validList(summaries, (item) => item.scope === 'dataset' && ['group_1', 'group_2'].includes(item.measurement_group)
       && Array.isArray(item.metrics) && Array.isArray(item.texture?.samples))
     && validList(groups, (item) => item.scope === 'dataset' && item.comparison === 'group_2_minus_group_1' && Array.isArray(item.metrics))

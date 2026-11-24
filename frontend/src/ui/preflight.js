@@ -1,104 +1,48 @@
-import { ApiError, getHealth, testGemini } from '../api.js'
-import { element, formatValue } from './dom.js'
+import { testGemini } from '../api.js'
+import { element } from './dom.js'
 
-export function createPreflightPanel({ readHealth = getHealth, probeGemini = testGemini } = {}) {
-  const panel = element('section', 'dashboard-card preflight-panel')
-  panel.setAttribute('aria-labelledby', 'preflight-title')
-  const title = element('h2', '', 'Antes de apresentar')
-  title.id = 'preflight-title'
-  const description = element('p', 'card-description', 'Confira a conexão antes de importar os arquivos. Configuração detectada não confirma acesso ao Gemini.')
-  const metadata = element('dl', 'audit-metadata preflight-metadata')
-  const values = {}
-  for (const [key, label] of [['backend', 'Backend'], ['gemini', 'Gemini'], ['model', 'Modelo configurado'], ['version', 'Versão do backend']]) {
-    const item = element('div')
-    values[key] = element('dd', '', 'Não verificado')
-    values[key].dataset.check = key
-    item.append(element('dt', '', label), values[key])
-    metadata.append(item)
-  }
-  const actions = element('div', 'card-actions')
-  const refresh = element('button', 'button button--secondary', 'Atualizar status')
-  const test = element('button', 'button button--primary', 'Testar Gemini')
-  refresh.type = test.type = 'button'
-  test.disabled = true
-  const hint = element('p', 'card-description', 'Testar Gemini faz uma chamada curta ao modelo, sem enviar o pacote importado ou iniciar uma investigação.')
-  hint.id = 'preflight-test-hint'
-  test.setAttribute('aria-describedby', hint.id)
-  const status = element('p', 'status-message')
+export function createGeminiTestControl({ probeGemini = testGemini } = {}) {
+  const control = element('div', 'gemini-test-control')
+  const button = element('button', 'button button--ghost', 'Testar conexão com o Gemini')
+  button.type = 'button'
+  const status = element('p', 'gemini-test-control__status')
   status.setAttribute('role', 'status')
-  status.setAttribute('aria-atomic', 'true')
-  status.tabIndex = -1
-  const latency = element('p', 'chart-hint', 'Latência do teste: não medida.')
-  latency.dataset.check = 'latency'
-  actions.append(refresh, test)
-  panel.append(title, description, metadata, hint, actions, status, latency)
+  status.setAttribute('aria-live', 'polite')
+  control.append(button, status)
 
-  let active = false
-  let busy = false
-  let configured = false
-  let revision = 0
+  let disposed = false
   let controller
 
-  async function run(kind, userInitiated = false) {
-    if (!active || busy || (kind === 'probe' && !configured)) return
-    busy = true
-    const current = ++revision
-    controller = new AbortController()
-    refresh.disabled = test.disabled = true
-    refresh.textContent = kind === 'health' ? 'Verificando…' : 'Atualizar status'
-    test.textContent = kind === 'probe' ? 'Testando…' : 'Testar Gemini'
+  button.addEventListener('click', async () => {
+    if (button.disabled || disposed) return
+    button.disabled = true
+    button.textContent = 'Testando…'
     status.setAttribute('role', 'status')
-    status.textContent = kind === 'health' ? 'Verificando o backend e a configuração do Gemini…' : 'Aguardando a resposta do Gemini…'
-    latency.textContent = 'Latência do teste: não medida.'
-    if (kind === 'health') {
-      configured = false
-      values.backend.textContent = 'Verificando…'
-      values.gemini.textContent = values.model.textContent = values.version.textContent = 'Não verificado'
-    }
+    status.textContent = 'Verificando conexão…'
+    controller = new AbortController()
     try {
-      const result = await (kind === 'health' ? readHealth : probeGemini)({ signal: controller.signal })
-      if (!active || current !== revision) return
-      values.backend.textContent = 'Conectado'
-      values.model.textContent = result.model
-      if (kind === 'health') {
-        configured = result.gemini_configured
-        values.gemini.textContent = configured ? 'Configurado · conexão não testada' : 'Não configurado'
-        values.version.textContent = result.version
-        status.textContent = configured ? 'Backend conectado. Use Testar Gemini para confirmar acesso ao modelo.'
-          : 'Backend conectado. Configure a chave do Gemini no backend e atualize o status. O fallback local continua disponível.'
-      } else {
-        if (result.error_code === 'missing_api_key') configured = false
-        values.gemini.textContent = result.success ? 'Conexão confirmada' : configured ? 'Configurado · teste falhou' : 'Não configurado'
-        status.setAttribute('role', result.success ? 'status' : 'alert')
-        status.textContent = result.message
-        latency.textContent = `Latência do teste: ${formatValue(result.latency_ms)} ms · medida pelo backend.`
-      }
+      const result = await probeGemini({ signal: controller.signal })
+      if (disposed) return
+      const fullyAvailable = result.success
+        && result.available_key_count === result.configured_key_count
+      status.setAttribute('role', fullyAvailable ? 'status' : 'alert')
+      status.textContent = result.message
     } catch (error) {
-      if (!active || current !== revision) return
-      configured = false
-      values.backend.textContent = 'Conexão não confirmada'
-      values.gemini.textContent = values.model.textContent = values.version.textContent = 'Não verificado'
+      if (disposed || error?.name === 'AbortError') return
       status.setAttribute('role', 'alert')
-      status.textContent = error instanceof ApiError ? error.message : 'Não foi possível verificar a conexão. Atualize o status para tentar novamente.'
+      status.textContent = error instanceof Error ? error.message : 'Não foi possível testar a conexão.'
     } finally {
-      if (active && current === revision) {
-        busy = false
-        refresh.disabled = false
-        test.disabled = !configured
-        refresh.textContent = 'Atualizar status'
-        test.textContent = 'Testar Gemini'
-        if (userInitiated && panel.isConnected) status.focus()
+      if (!disposed) {
+        button.disabled = false
+        button.textContent = 'Testar conexão com o Gemini'
       }
     }
+  })
+
+  control.dispose = () => {
+    disposed = true
+    controller?.abort()
   }
-  refresh.addEventListener('click', () => run('health', true))
-  test.addEventListener('click', () => run('probe', true))
-  panel.mount = () => {
-    if (active) return
-    active = true
-    busy = false
-    run('health')
-  }
-  panel.dispose = () => { active = false; revision++; controller?.abort() }
-  return panel
+  control.mount = () => { disposed = false }
+  return control
 }

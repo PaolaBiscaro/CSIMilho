@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 from time import perf_counter_ns
+from typing import Callable
 from uuid import UUID, uuid4
 
 from pydantic import ValidationError
@@ -22,6 +23,21 @@ _ERROR_MESSAGES = {
     "tool_execution_failed": "Não foi possível concluir a execução da ferramenta.",
 }
 
+_TOOL_ACTIVITY = {
+    "validate_comparison": ("Verificando se os talhões podem ser comparados", "Comparabilidade dos talhões verificada"),
+    "compare_ndvi": ("Comparando a evolução do NDVI", "Evolução do NDVI comparada"),
+    "analyze_field_ndvi": ("Investigando a série temporal de NDVI do talhão", "Série temporal do talhão analisada"),
+    "summarize_field_population": ("Resumindo os registros de plantio do talhão", "Registros de plantio do talhão resumidos"),
+    "summarize_field_application": ("Verificando as aplicações do talhão", "Aplicações do talhão verificadas"),
+    "check_initial_condition": ("Verificando a condição anterior ao plantio", "Condição anterior ao plantio verificada"),
+    "compare_population": ("Comparando a população de plantas", "População de plantas comparada"),
+    "application_compliance": ("Verificando a execução das aplicações", "Execução das aplicações verificada"),
+    "summarize_soil_analysis": ("Organizando os resultados de solo", "Resultados de solo organizados"),
+    "compare_soil_measurement_groups": ("Comparando os conjuntos de medições do solo", "Conjuntos de medições do solo comparados"),
+}
+
+ProgressSink = Callable[[dict[str, str]], None]
+
 
 class ToolExecutionError(RuntimeError):
     """Safe execution error, also available in the recorded failed call."""
@@ -41,7 +57,8 @@ class InvestigationRecorder:
     """
 
     def __init__(self, request: InvestigationRequest, *, model: str,
-                 store: SessionStore = dataset_store) -> None:
+                 store: SessionStore = dataset_store,
+                 progress_sink: ProgressSink | None = None) -> None:
         self._validator = ToolCallValidator(request, store=store)
         self._store = store
         self._investigation_id = uuid4()
@@ -51,6 +68,7 @@ class InvestigationRecorder:
         )
         self._ids = EvidenceIdGenerator()
         self._result_ids: set[str] = set()
+        self._progress_sink = progress_sink
 
     @property
     def investigation_id(self) -> UUID:
@@ -64,9 +82,26 @@ class InvestigationRecorder:
         """Return a defensive copy with no question, raw data or provider config."""
         return self._trace.model_copy(deep=True)
 
+    def emit_progress(self, stage: str, message: str, *, tool: str = "") -> None:
+        """Publish a safe operational event without arguments, data or model reasoning."""
+        if self._progress_sink is None:
+            return
+        event = {"stage": stage, "message": message}
+        if tool:
+            event["tool"] = tool
+        try:
+            self._progress_sink(event)
+        except Exception:
+            # Presentation callbacks must never affect analytical execution.
+            pass
+
     def run_tool(self, name: str, arguments: dict) -> Evidence:
         params = self._validator.validate_call(name, arguments)
         tool = registry.get_tool(name)
+        started_message, completed_message = _TOOL_ACTIVITY.get(
+            name, ("Executando uma análise selecionada", "Análise concluída"),
+        )
+        self.emit_progress("tool_started", started_message, tool=name)
         # Keep trace arguments separate from the dictionary passed to execution.
         normalized = params.model_dump(mode="json")
         started_at = datetime.now(timezone.utc)
@@ -114,9 +149,13 @@ class InvestigationRecorder:
                 **base, result_evidence_ids=[], source_files=[], status="error",
                 error=ToolCallError(code=error_code, message=_ERROR_MESSAGES[error_code]),
             ))
+            message = ("Esta análise foi interrompida porque os dados necessários não estão disponíveis"
+                       if error_code == "analysis_unavailable" else "Não foi possível concluir esta análise")
+            self.emit_progress("tool_blocked", message, tool=name)
             # Raise outside the except blocks so no raw exception is retained.
             raise ToolExecutionError(error_code)
 
         self._trace.calls.append(entry)
         self._result_ids.add(entry.result_evidence_ids[0])
+        self.emit_progress("tool_completed", completed_message, tool=name)
         return result

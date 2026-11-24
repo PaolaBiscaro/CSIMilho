@@ -83,15 +83,15 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"passed": False, "error_code": "invalid_package",
                               "issue_codes": sorted({item.code for item in uploaded.errors})}))
             return 2
-        request = InvestigationRequest(
-            dataset_id=uploaded.dataset_id, target_field_id=args.target, reference_field_id=args.reference,
-            period="full_season", question=QUESTION,
-        )
         permitted = any(pair.target_field_id == args.target and pair.reference_field_id == args.reference
                         for pair in uploaded.valid_pairs)
         if not permitted:
             print(json.dumps({"passed": False, "error_code": "invalid_pair"}))
             return 2
+        request = InvestigationRequest(
+            dataset_id=uploaded.dataset_id, target_field_id=args.target, reference_field_id=args.reference,
+            period="full_season", question=QUESTION,
+        )
         if args.check_only:
             print(json.dumps({"check_only": True, "package_valid": True,
                               "gemini_configured": settings.gemini_configured, "model": settings.gemini_model,

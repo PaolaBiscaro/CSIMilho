@@ -8,7 +8,8 @@ from uuid import uuid4
 
 import pytest
 
-from app.analytics.contracts import ComparisonArgs
+from app.analytics.common import AnalysisUnavailableError
+from app.analytics.contracts import ComparisonArgs, SingleFieldArgs
 from app.data.session_store import SessionStore
 from app.harness import validators
 from app.harness.registry import TOOLS, execute_tool
@@ -39,19 +40,47 @@ def assert_rejected(validator, name, arguments, code):
 
 
 @pytest.mark.parametrize("name", list(TOOLS))
-def test_all_seven_tools_accept_correct_scope_and_return_executable_arguments(context, name):
+def test_all_registered_tools_accept_their_correct_scope(context, name):
     request, store = context
-    args = {"dataset_id": str(request.dataset_id)} if "soil" in name else comparison_args(request)
+    parameter_model = TOOLS[name].parameters
+    if issubclass(parameter_model, ComparisonArgs):
+        scoped_request = request
+        args = comparison_args(request)
+    elif issubclass(parameter_model, SingleFieldArgs):
+        scoped_request = InvestigationRequest(
+            dataset_id=request.dataset_id,
+            analysis_mode="single_field",
+            target_field_id=request.target_field_id,
+            period=request.period,
+            question="Analise os sinais disponíveis somente neste talhão.",
+        )
+        args = {
+            "dataset_id": str(request.dataset_id),
+            "field_id": request.target_field_id,
+            "period": "full_season",
+        }
+    else:
+        scoped_request = request
+        args = {"dataset_id": str(request.dataset_id)}
     original = deepcopy(args)
-    params = ToolCallValidator(request, store=store).validate_call(name, args)
+    params = ToolCallValidator(scoped_request, store=store).validate_call(name, args)
     assert type(params) is TOOLS[name].parameters
     assert params.dataset_id == request.dataset_id
     assert args == original
-    result = execute_tool(name, params.model_dump(mode="json"), store=store)
+    try:
+        result = execute_tool(name, params.model_dump(mode="json"), store=store)
+    except AnalysisUnavailableError:
+        assert name in {
+            "associate_field_operations_ndvi",
+            "test_soil_measurement_groups",
+        }
+        return
     assert result.evidence_id and result.source_files
     if "soil" in name:
         assert result.scope == "dataset"
         assert "target_field_id" not in params.model_dump()
+    elif isinstance(params, SingleFieldArgs):
+        assert result.field_id == request.target_field_id
     else:
         assert result.target_field_id == request.target_field_id
 
@@ -126,7 +155,6 @@ def test_existing_fields_cannot_replace_or_reverse_selected_pair(context, change
 @pytest.mark.parametrize(("change", "code"), [
     ({"dataset_id": uuid4()}, "dataset_not_found"),
     ({"target_field_id": "missing"}, "field_not_found"),
-    ({"reference_field_id": "103144"}, "invalid_pair"),
 ])
 def test_invalid_initial_selection_is_rejected(context, change, code):
     request, store = context
@@ -134,6 +162,16 @@ def test_invalid_initial_selection_is_rejected(context, change, code):
     with pytest.raises(ToolCallValidationError) as caught:
         ToolCallValidator(request, store=store)
     assert caught.value.code == code
+
+
+def test_request_schema_rejects_same_field_before_validator(context):
+    from pydantic import ValidationError
+
+    request, _ = context
+    with pytest.raises(ValidationError, match="dois talhões distintos"):
+        InvestigationRequest.model_validate(
+            {**request.model_dump(), "reference_field_id": request.target_field_id}
+        )
 
 
 def test_removed_dataset_is_checked_again_on_each_call(context):

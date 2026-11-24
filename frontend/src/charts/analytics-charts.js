@@ -44,6 +44,29 @@ export function ndviConfig(evidence, labels, colors) {
   }
 }
 
+export function fieldNdviConfig(evidence, label, colors) {
+  if (!evidence?.series?.length) return null
+  return {
+    type: 'line',
+    data: {
+      labels: evidence.series.map((point) => point.date),
+      datasets: [{ label, data: evidence.series.map((point) => point.ndvi), borderColor: colors[0], backgroundColor: colors[0], tension: 0, pointRadius: 4 }],
+    },
+    options: {
+      ...options(evidence.unit), spanGaps: false,
+      scales: { ...options(evidence.unit).scales, x: { ticks: { callback(value) { return formatDate(this.getLabelForValue(value)) } } } },
+      plugins: { ...options(evidence.unit).plugins, tooltip: { callbacks: {
+        ...options(evidence.unit).plugins.tooltip.callbacks,
+        title: (items) => formatDate(evidence.series[items[0]?.dataIndex]?.date),
+        afterBody: (items) => {
+          const change = evidence.series[items[0]?.dataIndex]?.change_from_previous
+          return change == null ? 'Primeira observação' : `Mudança desde a data anterior: ${formatValue(change)}`
+        },
+      } } },
+    },
+  }
+}
+
 const STAT_LABELS = ['Mínimo', 'Q1', 'Mediana', 'Q3', 'Máximo']
 
 // Draw the five-number summary already calculated by Python. No observations are inferred.

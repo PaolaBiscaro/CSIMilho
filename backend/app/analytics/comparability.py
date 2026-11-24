@@ -47,6 +47,8 @@ def validate_comparison(dataset, target_field_id, reference_field_id, period="fu
     if allowed:
         if not paired.empty:
             analyses.append("compare_ndvi")
+            if int((paired["gap"].abs() > 1e-12).sum()) >= 5:
+                analyses.append("test_paired_ndvi_difference")
         if initial.available:
             analyses.append("check_initial_condition")
         if all(not rows.empty for rows in planting):
@@ -57,6 +59,18 @@ def validate_comparison(dataset, target_field_id, reference_field_id, period="fu
             analyses.append("summarize_soil_analysis")
             if any(bool(group) for group in dataset.soil_samples.group_2):
                 analyses.append("compare_soil_measurement_groups")
+                for sample_metric in set().union(
+                    *(set(group) for group in dataset.soil_samples.group_1),
+                    *(set(group) for group in dataset.soil_samples.group_2),
+                ):
+                    deltas = []
+                    for row in dataset.soil_samples.itertuples(index=False):
+                        one, two = row.group_1.get(sample_metric), row.group_2.get(sample_metric)
+                        if isinstance(one, (int, float)) and isinstance(two, (int, float)):
+                            deltas.append(two - one)
+                    if sum(abs(value) > 1e-12 for value in deltas) >= 5:
+                        analyses.append("test_soil_measurement_groups")
+                        break
     return ComparisonEvidence(
         **metadata(ids, "COMP", ["fields.csv", "LAYER_MAP_PLANTING.csv", "LAYER_MAP_FERTILIZATION.csv", "ndvi_metadata.csv"],
                    "Um ponto por critério satisfeito; critério desconhecido não pontua. Cultura ou finalidade incompatível e manejo não distinto bloqueiam o par.", None, len(paired)),

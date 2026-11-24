@@ -53,8 +53,11 @@ def test_success_returns_model_latency_and_safe_message(fake_client):
         "success": True,
         "model": "configured-test-model",
         "latency_ms": 125,
-        "message": "Conexão com o Gemini verificada.",
+        "message": "1 de 1 chave do Gemini está disponível.",
         "error_code": None,
+        "configured_key_count": 1,
+        "available_key_count": 1,
+        "key_results": [{"slot": 1, "success": True, "latency_ms": 125, "error_code": None}],
     }
     fake_client.generate_content.assert_called_once()
     args, kwargs = fake_client.generate_content.call_args
@@ -63,6 +66,51 @@ def test_success_returns_model_latency_and_safe_message(fake_client):
     assert kwargs["config"].candidate_count == 1
     assert not kwargs["config"].tools
     fake_client.__exit__.assert_called_once()
+
+
+def test_probe_checks_each_configured_key_independently(monkeypatch):
+    settings = Settings(
+        _env_file=None,
+        GEMINI_API_KEY="artificial-key-one",
+        GEMINI_API_KEY_2="artificial-key-two",
+        GEMINI_MODEL="configured-test-model",
+    )
+    monkeypatch.setattr(gemini, "get_settings", lambda: settings)
+    tested = []
+
+    class SlotClient:
+        def __init__(self, slot_settings):
+            self.key = slot_settings.gemini_api_keys[0].get_secret_value()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def generate_content(self, *_args, **_kwargs):
+            tested.append(self.key)
+            if self.key.endswith("two"):
+                raise gemini_client.GeminiError("authentication_error")
+            return types.GenerateContentResponse(candidates=[types.Candidate(
+                finish_reason=types.FinishReason.STOP,
+                content=types.Content(role="model", parts=[types.Part(text="OK")]),
+            )])
+
+    monkeypatch.setattr(gemini_client, "GeminiClient", SlotClient)
+    times = iter([1.0, 1.1, 2.0, 2.2])
+    monkeypatch.setattr(gemini, "perf_counter", lambda: next(times))
+
+    with TestClient(create_app()) as client:
+        response = client.post("/api/gemini/test")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["configured_key_count"] == 2
+    assert payload["available_key_count"] == 1
+    assert payload["error_code"] == "partial_availability"
+    assert [item["success"] for item in payload["key_results"]] == [True, False]
+    assert tested == ["artificial-key-one", "artificial-key-two"]
 
 
 @pytest.mark.parametrize("key", [None, "", "   "])
@@ -111,6 +159,9 @@ def test_controlled_failures_keep_response_contract(fake_client, code, status):
         "latency_ms": 125,
         "message": str(gemini_client.GeminiError(code)),
         "error_code": code,
+        "configured_key_count": 1,
+        "available_key_count": 0,
+        "key_results": [{"slot": 1, "success": False, "latency_ms": 125, "error_code": code}],
     }
     fake_client.generate_content.assert_called_once()
     fake_client.__exit__.assert_called_once()
@@ -181,7 +232,8 @@ def test_api_uses_official_sdk_with_mock_http_transport(monkeypatch, api_setting
 
     assert response.status_code == expected_status
     assert response.json()["success"] is (provider_status == 200)
-    assert len(requests) == 1
+    expected_requests = 2 if provider_status in (503, "timeout") else 1
+    assert len(requests) == expected_requests
     request = requests[0]
     assert request.url.path.endswith("/models/configured-test-model:generateContent")
     assert request.headers["x-goog-api-key"] == "artificial-api-test-key"

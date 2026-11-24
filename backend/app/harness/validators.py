@@ -5,7 +5,10 @@ import json
 from pydantic import BaseModel, ValidationError
 
 from app.analytics.common import canonical_operation
-from app.analytics.contracts import ApplicationArgs, ComparisonArgs, SoilGroupsArgs, SoilSummaryArgs
+from app.analytics.contracts import (
+    ApplicationArgs, ComparisonArgs, OperationNdviArgs, SingleApplicationArgs,
+    SingleFieldArgs, SoilGroupsArgs, SoilSummaryArgs,
+)
 from app.data.session_store import DatasetNotFoundError, SessionStore, dataset_store
 from app.harness.registry import TOOLS
 from app.harness.schemas import InvestigationRequest
@@ -22,7 +25,9 @@ _MESSAGES = {
     "dataset_not_found": "O dataset da investigação não está mais disponível na sessão.",
     "field_not_found": "Talhão inexistente no dataset da investigação.",
     "invalid_pair": "A investigação exige dois talhões distintos.",
+    "scope_mismatch": "A ferramenta solicitada não corresponde ao modo da investigação.",
     "pair_changed": "A chamada deve preservar o alvo e a referência selecionados.",
+    "field_changed": "A chamada deve preservar o talhão selecionado.",
     "period_changed": "A chamada deve preservar o período selecionado.",
     "duplicate_call": "Esta ferramenta já foi solicitada com os mesmos argumentos.",
 }
@@ -47,7 +52,7 @@ class ToolCallValidator:
 
     def __init__(self, request: InvestigationRequest, *, store: SessionStore = dataset_store) -> None:
         # Revalidate a copy: caller mutation must not change the selected scope.
-        self._request = InvestigationRequest.model_validate(request.model_dump())
+        self._request = InvestigationRequest.model_validate({**request.model_dump(), "analysis_mode": request.analysis_mode})
         self._store = store
         self._seen: set[tuple[str, str]] = set()
         self._field_ids()
@@ -58,10 +63,13 @@ class ToolCallValidator:
         except DatasetNotFoundError:
             raise ToolCallValidationError("dataset_not_found") from None
         field_ids = {field.field_id for field in dataset.fields}
-        if self._request.target_field_id not in field_ids or self._request.reference_field_id not in field_ids:
+        if self._request.target_field_id not in field_ids:
             raise ToolCallValidationError("field_not_found")
-        if self._request.target_field_id == self._request.reference_field_id:
-            raise ToolCallValidationError("invalid_pair")
+        if self._request.analysis_mode == "comparison":
+            if self._request.reference_field_id not in field_ids:
+                raise ToolCallValidationError("field_not_found")
+            if self._request.target_field_id == self._request.reference_field_id:
+                raise ToolCallValidationError("invalid_pair")
         return field_ids
 
     def validate_call(self, name: str, arguments: dict) -> BaseModel:
@@ -80,6 +88,8 @@ class ToolCallValidator:
             raise ToolCallValidationError("dataset_mismatch")
         field_ids = self._field_ids()
         if isinstance(params, ComparisonArgs):
+            if self._request.analysis_mode != "comparison":
+                raise ToolCallValidationError("scope_mismatch")
             if params.target_field_id not in field_ids or params.reference_field_id not in field_ids:
                 raise ToolCallValidationError("field_not_found")
             if (params.target_field_id, params.reference_field_id) != (
@@ -88,7 +98,20 @@ class ToolCallValidator:
                 raise ToolCallValidationError("pair_changed")
             if params.period != self._request.period:
                 raise ToolCallValidationError("period_changed")
-        if isinstance(params, ApplicationArgs):
+        if isinstance(params, SingleFieldArgs):
+            if self._request.analysis_mode != "single_field":
+                raise ToolCallValidationError("scope_mismatch")
+            if params.field_id not in field_ids:
+                raise ToolCallValidationError("field_not_found")
+            if params.field_id != self._request.target_field_id:
+                raise ToolCallValidationError("field_changed")
+            if params.period != self._request.period:
+                raise ToolCallValidationError("period_changed")
+        if isinstance(params, (ApplicationArgs, SingleApplicationArgs)):
+            params.operation = canonical_operation(params.operation)
+            if not params.operation:
+                raise ToolCallValidationError("invalid_arguments")
+        if isinstance(params, OperationNdviArgs) and params.operation is not None:
             params.operation = canonical_operation(params.operation)
             if not params.operation:
                 raise ToolCallValidationError("invalid_arguments")

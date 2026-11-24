@@ -76,8 +76,9 @@ def test_two_tools_then_finalization_preserves_context_results_signatures_and_id
     assert result.warnings[0].code == "quality_notice"
     initial, config, timeout = client.calls[0]
     payload = json.loads(initial[0].parts[0].text)
-    assert set(payload) == {"question", "dataset_id", "target", "reference", "period",
-                            "source_files", "warnings", "max_tool_calls"}
+    assert set(payload) == {"question", "analysis_mode", "dataset_id", "target", "reference", "period",
+                            "source_files", "warnings", "capability_gaps", "max_tool_calls"}
+    assert payload["capability_gaps"] == []
     assert set(payload["target"]) == {"field_id", "label"}
     assert payload["question"] == request.question
     assert payload["source_files"] == ["fields.csv", "ndvi_metadata.csv"]
@@ -86,7 +87,7 @@ def test_two_tools_then_finalization_preserves_context_results_signatures_and_id
     assert config.automatic_function_calling.disable
     assert config.tool_config.function_calling_config.mode == "ANY"
     assert config.tool_config.function_calling_config.allowed_function_names == ["validate_comparison"]
-    assert len(config.tools[0].function_declarations) == 7
+    assert len(config.tools[0].function_declarations) == 1
     assert 0 < timeout <= 7
     second_history, second_config, second_timeout = client.calls[1]
     assert second_config.tool_config.function_calling_config.mode == "AUTO"
@@ -185,7 +186,12 @@ def test_configured_limit_stops_without_extra_generation(context):
 def test_hard_limit_eight_even_with_larger_configuration_and_batched_calls(context):
     args = comparison_args(context[0])
     soil = {"dataset_id": args["dataset_id"]}
-    batch = [call(name, soil if "soil" in name else args) for name in registry.TOOLS]
+    batch_names = [
+        "validate_comparison", "compare_ndvi", "test_paired_ndvi_difference",
+        "check_initial_condition", "compare_population", "application_compliance",
+        "summarize_soil_analysis", "compare_soil_measurement_groups",
+    ]
+    batch = [call(name, soil if "soil" in name else args) for name in batch_names]
     batch += [call("summarize_soil_analysis", {**soil, "measurement_group": "group_2"}),
               call("application_compliance", {**args, "operation": "NEVER_EXECUTE"})]
     client = FakeClient(response(*batch))
@@ -196,15 +202,19 @@ def test_hard_limit_eight_even_with_larger_configuration_and_batched_calls(conte
     assert json.loads(client.calls[0][0][0].parts[0].text)["max_tool_calls"] == 8
 
 
-def test_calculation_failure_keeps_partial_evidence_and_stops(context):
+def test_analysis_without_required_data_is_reported_and_other_work_can_continue(context):
     args = comparison_args(context[0])
     client = FakeClient(response(call("validate_comparison", args)),
                         response(call("application_compliance", {**args, "operation": "UNKNOWN"})), done())
     result = run(context, client)
-    assert result.error.code == "analysis_unavailable"
+    assert result.stop_reason == "model_finished" and result.error is None
     assert len(result.evidence) == 1 and len(result.trace.calls) == 2
     assert result.trace.calls[-1].status == "error"
-    assert len(client.calls) == 2
+    assert result.warnings[-1].code == "analysis_missing_data_application_compliance"
+    assert "dose configurada" in result.warnings[-1].message
+    assert len(client.calls) == 3
+    reply = client.calls[2][0][-1].parts[0].function_response
+    assert reply.response["error"]["code"] == result.warnings[-1].code
 
 
 @pytest.mark.parametrize("corruption", ["nan", "wrong_type"])

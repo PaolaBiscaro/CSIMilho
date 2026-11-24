@@ -1,5 +1,21 @@
-from app.analytics.common import OPERATION_SOURCES, field_context, metadata, operation_rows, valid_weighted_rows, weighted
-from app.analytics.contracts import PopulationEvidence
+from app.analytics.common import OPERATION_SOURCES, AnalysisUnavailableError, field_context, metadata, operation_rows, period_frame, valid_weighted_rows, weighted
+from app.analytics.contracts import FieldPopulationEvidence, PopulationEvidence
+
+
+def summarize_field_population(dataset, field_id, period="full_season", *, ids=None):
+    if field_id not in {field.field_id for field in dataset.fields}:
+        raise AnalysisUnavailableError("Talhão inexistente no dataset selecionado.")
+    frame = period_frame(dataset.planting_operations, period, "operation_date")
+    rows, counts = valid_weighted_rows(
+        frame.loc[frame["field_id"] == field_id].copy(), ["population_per_ha"], {"population_per_ha"},
+    )
+    population = weighted(rows, "population_per_ha")
+    return FieldPopulationEvidence(
+        **metadata(ids, "FIELD-POP", ["LAYER_MAP_PLANTING.csv", *OPERATION_SOURCES],
+                   "População de plantas ponderada por área dentro do talhão e período selecionados.",
+                   "plants/ha", counts["valid"], metric="field_population", target_value=population),
+        field_id=field_id, period=period, population_per_ha=population, rows=counts,
+    )
 
 
 def compare_population(dataset, target_field_id, reference_field_id, period="full_season", *, ids=None):

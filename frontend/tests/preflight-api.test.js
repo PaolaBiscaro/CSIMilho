@@ -2,7 +2,11 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { ApiError, getHealth, testGemini } from '../src/api.js'
 
 const health = { status: 'ok', gemini_configured: true, model: 'configured-model', version: '1.0.0' }
-const probe = { success: true, model: 'configured-model', latency_ms: 0, error_code: null }
+const probe = {
+  success: true, model: 'configured-model', latency_ms: 0, error_code: null,
+  configured_key_count: 1, available_key_count: 1,
+  key_results: [{ slot: 1, success: true, latency_ms: 0, error_code: null }],
+}
 const respond = (payload, status = 200) => {
   const fetch = vi.fn().mockResolvedValue({ ok: status < 400, status, json: async () => payload })
   vi.stubGlobal('fetch', fetch)
@@ -22,17 +26,22 @@ it('posts an empty probe without a dataset, question, key or model override', as
   const result = await testGemini({ signal: controller.signal })
   expect(fetch).toHaveBeenCalledExactlyOnceWith('/api/gemini/test', { method: 'POST', signal: controller.signal })
   expect(result.latency_ms).toBe(0)
-  expect(result.message).toContain('Conexão com o Gemini verificada')
+  expect(result.message).toContain('1 de 1 chave do Gemini disponível')
   expect(JSON.stringify(result)).not.toContain('PRIVATE')
 })
 
 it.each([
-  [401, 'authentication_error', 'recusou a chave'], [403, 'permission_denied', 'permissão'],
+  [401, 'authentication_error', 'recusou a credencial'], [403, 'permission_denied', 'permissão'],
   [429, 'rate_limit', 'limite de uso'], [504, 'timeout', 'demorou'],
-  [503, 'unavailable', 'indisponível'], [503, 'missing_api_key', 'não configurada'],
+  [503, 'unavailable', 'indisponível'], [503, 'missing_api_key', 'não foi configurada'],
   [502, 'invalid_response', 'vazia ou bloqueada'], [502, '__proto__', 'Não foi possível confirmar'],
 ])('translates HTTP %i / %s into a safe message', async (status, error_code, message) => {
-  respond({ ...probe, success: false, error_code, message: 'PRIVATE_STACK_TRACE' }, status)
+  const noKey = error_code === 'missing_api_key'
+  respond({
+    ...probe, success: false, error_code, message: 'PRIVATE_STACK_TRACE',
+    configured_key_count: noKey ? 0 : 1, available_key_count: 0,
+    key_results: noKey ? [] : [{ slot: 1, success: false, latency_ms: 0, error_code }],
+  }, status)
   const result = await testGemini()
   expect(result.success).toBe(false)
   expect(result.message).toContain(message)
@@ -51,7 +60,7 @@ it.each([{}, { ...probe, latency_ms: -1 }, { ...probe, success: false }, { ...pr
 
 it.each([getHealth, testGemini])('handles network, non-JSON and cancellation without leaking details %#', async (request) => {
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('PRIVATE_NETWORK')))
-  await expect(request()).rejects.toThrow('conectar ao backend')
+  await expect(request()).rejects.toThrow('conectar ao serviço')
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503, json: async () => { throw new Error('PRIVATE_HTML') } }))
   const error = await request().catch((caught) => caught)
   expect(error).toBeInstanceOf(ApiError)

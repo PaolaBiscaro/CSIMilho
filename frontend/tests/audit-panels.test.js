@@ -50,8 +50,8 @@ it('projects only public arguments per tool, preserving order and reporting fall
   expect(panel.textContent).toContain('CALAGEM')
   expect(panel.textContent).toContain('Todas as métricas disponíveis')
   expect(panel.textContent).not.toContain('HIDDEN_TARGET')
-  expect(panel.textContent).toContain('Fallback determinístico · gerado localmente')
-  expect(panel.textContent).toContain('não identifica o autor deste relatório')
+  expect(panel.textContent).toContain('Geração de contingência')
+  expect(panel.textContent).toContain('evidências calculadas')
 })
 
 it('never inserts unknown trace fields, credentials, prompts, raw rows or raw error messages into the DOM', () => {

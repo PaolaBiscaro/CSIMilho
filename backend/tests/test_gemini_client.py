@@ -3,6 +3,7 @@
 import importlib
 import json
 import traceback
+from threading import Event
 from unittest.mock import Mock
 
 from google import genai
@@ -96,7 +97,7 @@ def test_missing_or_blank_key_fails_before_sdk_creation(monkeypatch, key):
     factory.assert_not_called()
 
 
-@pytest.mark.parametrize("timeout,expected", [(1.25, 1.25), (30, 7.0), (0.0001, 0.001)])
+@pytest.mark.parametrize("timeout,expected", [(1.25, 1.25), (30, 7.0), (0.1, 0.1)])
 def test_per_call_timeout_can_only_reduce_the_configured_limit(make_client, timeout, expected):
     client, _, requests, _ = make_client()
     client.generate_content("Teste", timeout_seconds=timeout)
@@ -183,19 +184,21 @@ def test_generation_config_is_preserved_without_allowing_automatic_tool_executio
     (503, "unavailable"),
     (504, "timeout"),
 ])
-def test_api_errors_are_safe_and_not_retried_by_sdk(make_client, caplog, status, code):
+def test_api_errors_are_safe_and_not_retried_by_sdk(make_client, caplog, monkeypatch, status, code):
     private_content = "artificial-test-key private-prompt-content"
 
     def fail(request):
         return httpx.Response(status, json={"error": {"code": status, "message": private_content}})
 
+    monkeypatch.setattr(gemini_client, "sleep", lambda seconds: None)
     client, _, requests, transport = make_client(fail)
     with client, pytest.raises(gemini_client.GeminiError) as caught:
         client.generate_content("private-prompt-content")
     error = caught.value
     assert error.code == code
     assert error.status_code == status
-    assert len(requests) == 1
+    expected_attempts = 2 if code in gemini_client._SHORT_RETRY_ERRORS else 1
+    assert len(requests) == expected_attempts
     assert transport.is_closed
     public_error = str(error) + repr(error) + str(vars(error)) + "".join(traceback.format_exception(error))
     assert "artificial-test-key" not in public_error + caplog.text
@@ -227,17 +230,18 @@ def test_invalid_api_key_returned_as_400_has_authentication_message(make_client)
     (httpx.ReadError, "network_error"),
     (httpx.RemoteProtocolError, "network_error"),
 ])
-def test_transport_failures_are_translated_without_request_details(make_client, error_type, code):
+def test_transport_failures_are_translated_without_request_details(make_client, monkeypatch, error_type, code):
     def fail(request):
         raise error_type("private-network-details", request=request)
 
+    monkeypatch.setattr(gemini_client, "sleep", lambda seconds: None)
     client, _, requests, _ = make_client(fail)
     with pytest.raises(gemini_client.GeminiError) as caught:
         client.generate_content("Teste")
     assert caught.value.code == code
     assert caught.value.status_code is None
     assert "private-network-details" not in "".join(traceback.format_exception(caught.value))
-    assert len(requests) == 1
+    assert len(requests) == 2
 
 
 def test_client_configuration_error_is_sanitized(monkeypatch):
@@ -257,3 +261,250 @@ def test_programming_errors_are_not_hidden_as_provider_failures(make_client):
     with pytest.raises(RuntimeError, match="unexpected-programming-error"), client:
         client.generate_content("Teste")
     assert transport.is_closed
+
+
+class _FakeModels:
+    def __init__(self, result):
+        self.result = result
+        self.calls = []
+
+    def generate_content(self, **kwargs):
+        self.calls.append(kwargs)
+        if isinstance(self.result, Exception):
+            raise self.result
+        return self.result
+
+
+class _FakeSdkClient:
+    def __init__(self, result):
+        self.models = _FakeModels(result)
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+def _pool_settings(**overrides):
+    return settings(**{
+        "GEMINI_API_KEY": "pool-key-one",
+        "GEMINI_API_KEY_2": "pool-key-two",
+        "GEMINI_API_KEY_3": "pool-key-three",
+        "GEMINI_KEY_COOLDOWN_SECONDS": 30,
+        **overrides,
+    })
+
+
+def test_settings_expose_up_to_three_unique_non_blank_keys_without_serializing_raw_values():
+    configured = _pool_settings(GEMINI_API_KEY=" first ", GEMINI_API_KEY_2="first", GEMINI_API_KEY_3=" third ")
+    assert tuple(key.get_secret_value() for key in configured.gemini_api_keys) == ("first", "third")
+    assert configured.gemini_configured is True
+    dumped = str(configured.model_dump())
+    assert "first" not in dumped
+    assert "third" not in dumped
+
+
+def test_reserve_key_alone_marks_gemini_as_configured():
+    configured = settings(GEMINI_API_KEY=None, GEMINI_API_KEY_2=" reserve ")
+    assert configured.gemini_configured is True
+    assert [key.get_secret_value() for key in configured.gemini_api_keys] == ["reserve"]
+
+
+def test_first_and_second_key_fail_then_third_completes_same_interaction(monkeypatch):
+    successful = object()
+    outcomes = {
+        "pool-key-one": gemini_client.GeminiError("rate_limit"),
+        "pool-key-two": gemini_client.GeminiError("authentication_error"),
+        "pool-key-three": successful,
+    }
+    constructed = []
+    progress = []
+
+    def factory(**kwargs):
+        client = _FakeSdkClient(outcomes[kwargs["api_key"]])
+        constructed.append((kwargs["api_key"], client))
+        return client
+
+    monkeypatch.setattr(genai, "Client", factory)
+    with gemini_client.GeminiClient(_pool_settings(), progress_sink=progress.append) as client:
+        assert client.generate_content("Teste", timeout_seconds=5) is successful
+
+    assert [key for key, _ in constructed] == ["pool-key-one", "pool-key-two", "pool-key-three"]
+    assert all(client.closed for _, client in constructed)
+    assert [item["stage"] for item in progress] == [
+        "gemini_key_attempt", "gemini_key_failed",
+        "gemini_key_attempt", "gemini_key_failed",
+        "gemini_key_attempt", "gemini_key_succeeded",
+    ]
+    assert [item.get("key_slot") for item in progress] == [1, 1, 2, 2, 3, 3]
+    assert all("pool-key" not in item["message"] for item in progress)
+
+
+def test_all_keys_get_one_short_second_round_after_transient_unavailability(monkeypatch):
+    calls = []
+
+    class RecoveringModels:
+        def __init__(self, key):
+            self.key = key
+
+        def generate_content(self, **kwargs):
+            calls.append(self.key)
+            if len(calls) <= 3:
+                raise gemini_client.GeminiError("unavailable")
+            return "recovered"
+
+    class RecoveringClient:
+        def __init__(self, key):
+            self.models = RecoveringModels(key)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(genai, "Client", lambda **kwargs: RecoveringClient(kwargs["api_key"]))
+    monkeypatch.setattr(gemini_client, "sleep", lambda seconds: None)
+
+    with gemini_client.GeminiClient(_pool_settings()) as client:
+        assert client.generate_content("Teste", timeout_seconds=5) == "recovered"
+
+    assert calls == [
+        "pool-key-one", "pool-key-two", "pool-key-three", "pool-key-one",
+    ]
+
+
+def test_rate_limit_rotates_keys_but_does_not_retry_same_quota(monkeypatch):
+    calls = []
+
+    def factory(**kwargs):
+        calls.append(kwargs["api_key"])
+        return _FakeSdkClient(gemini_client.GeminiError("rate_limit"))
+
+    monkeypatch.setattr(genai, "Client", factory)
+    monkeypatch.setattr(
+        gemini_client, "sleep",
+        Mock(side_effect=AssertionError("quota errors must not be retried after rotation")),
+    )
+
+    with gemini_client.GeminiClient(_pool_settings()) as client:
+        with pytest.raises(gemini_client.GeminiError) as caught:
+            client.generate_content("Teste", timeout_seconds=5)
+
+    assert caught.value.code == "rate_limit"
+    assert calls == ["pool-key-one", "pool-key-two", "pool-key-three"]
+
+
+def test_each_interaction_starts_at_next_healthy_key_and_reuses_clients(monkeypatch):
+    clients = {}
+
+    def factory(**kwargs):
+        client = _FakeSdkClient(kwargs["api_key"])
+        clients[kwargs["api_key"]] = client
+        return client
+
+    monkeypatch.setattr(genai, "Client", factory)
+    with gemini_client.GeminiClient(_pool_settings()) as client:
+        results = [client.generate_content("Teste") for _ in range(4)]
+
+    assert results == ["pool-key-one", "pool-key-two", "pool-key-three", "pool-key-one"]
+    assert len(clients) == 3
+    assert all(client.closed for client in clients.values())
+
+
+def test_cooldown_and_disabled_key_are_skipped_on_later_interaction(monkeypatch):
+    outcomes = {
+        "pool-key-one": gemini_client.GeminiError("rate_limit"),
+        "pool-key-two": gemini_client.GeminiError("permission_denied"),
+        "pool-key-three": "third-ok",
+    }
+    clients = {}
+
+    def factory(**kwargs):
+        client = _FakeSdkClient(outcomes[kwargs["api_key"]])
+        clients[kwargs["api_key"]] = client
+        return client
+
+    monkeypatch.setattr(genai, "Client", factory)
+    with gemini_client.GeminiClient(_pool_settings()) as client:
+        assert client.generate_content("Primeira") == "third-ok"
+        assert client.generate_content("Segunda") == "third-ok"
+
+    assert len(clients["pool-key-one"].models.calls) == 1
+    assert len(clients["pool-key-two"].models.calls) == 1
+    assert len(clients["pool-key-three"].models.calls) == 2
+
+
+def test_non_key_request_error_does_not_rotate(monkeypatch):
+    constructed = []
+
+    def factory(**kwargs):
+        constructed.append(kwargs["api_key"])
+        return _FakeSdkClient(gemini_client.GeminiError("invalid_request"))
+
+    monkeypatch.setattr(genai, "Client", factory)
+    with gemini_client.GeminiClient(_pool_settings()) as client:
+        with pytest.raises(gemini_client.GeminiError) as caught:
+            client.generate_content("Teste")
+
+    assert caught.value.code == "invalid_request"
+    assert constructed == ["pool-key-one"]
+
+
+def test_rotation_reduces_timeout_for_each_attempt(monkeypatch):
+    clients = []
+
+    def factory(**kwargs):
+        result = gemini_client.GeminiError("rate_limit") if not clients else "ok"
+        client = _FakeSdkClient(result)
+        clients.append(client)
+        return client
+
+    monkeypatch.setattr(genai, "Client", factory)
+    with gemini_client.GeminiClient(_pool_settings()) as client:
+        assert client.generate_content("Teste", timeout_seconds=5) == "ok"
+
+    first_timeout = clients[0].models.calls[0]["config"].http_options.timeout
+    second_timeout = clients[1].models.calls[0]["config"].http_options.timeout
+    assert 0 < second_timeout <= first_timeout <= 5000
+
+
+def test_hard_attempt_deadline_returns_even_when_sdk_call_never_returns(monkeypatch):
+    release = Event()
+    calls = []
+
+    class BlockingModels:
+        def generate_content(self, **kwargs):
+            calls.append(kwargs)
+            release.wait(2)
+            return "late"
+
+    class BlockingClient:
+        models = BlockingModels()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(genai, "Client", lambda **_kwargs: BlockingClient())
+    monkeypatch.setattr(gemini_client, "_ATTEMPT_TIMEOUT_SECONDS", 0.02)
+    monkeypatch.setattr(gemini_client, "sleep", lambda _seconds: None)
+    try:
+        with gemini_client.GeminiClient(settings(GEMINI_TIMEOUT_SECONDS=1)) as client:
+            with pytest.raises(gemini_client.GeminiError) as caught:
+                client.generate_content("Teste")
+        assert caught.value.code == "timeout"
+        assert len(calls) == 2
+    finally:
+        release.set()
+
+
+def test_pool_errors_and_settings_never_expose_any_configured_key(monkeypatch, caplog):
+    secrets = ("pool-key-one", "pool-key-two", "pool-key-three")
+    monkeypatch.setattr(
+        genai, "Client", lambda **kwargs: _FakeSdkClient(gemini_client.GeminiError("rate_limit")),
+    )
+    configured = _pool_settings()
+    with gemini_client.GeminiClient(configured) as client:
+        with pytest.raises(gemini_client.GeminiError) as caught:
+            client.generate_content("private-prompt")
+
+    public = (
+        str(caught.value) + repr(caught.value) + str(configured) + repr(vars(client)) + caplog.text
+    )
+    assert all(secret not in public for secret in secrets)

@@ -232,7 +232,7 @@ ERROR
 
 ### 7.3 Telas
 
-Enquanto as etapas analíticas e o harness ainda não estiverem implementados, a navegação pode abrir prévias visuais das telas 2 e 3. Essas prévias devem ser explicitamente rotuladas como **dados demonstrativos**, usar apenas objetos locais de `frontend/src/mocks/` e nunca chamar endpoints de investigação. Navegar pela prévia não altera o estado real do dataset nem marca tarefas `W2.*` ou `W3.*` como concluídas.
+Comparação e Investigação não podem exibir dados ilustrativos. Comparação só é liberada depois da validação dos sete CSVs; Investigação só é liberada quando houver um relatório real concluído para o pacote importado.
 
 #### Tela 1 — Dados
 
@@ -257,13 +257,6 @@ Deve conter:
 - pontuação e critérios de comparabilidade;
 - análises disponíveis;
 - botão **Executar investigação**.
-
-Na prévia visual anterior à Semana 2:
-
-- os selects, período, pergunta e cards de comparabilidade devem ser clicáveis;
-- as opções vêm de dados mockados e não representam cálculo real;
-- o botão principal abre a prévia de investigação, sem chamar o backend;
-- um selo persistente deve informar **Prévia · dados demonstrativos**.
 
 Pergunta padrão:
 
@@ -296,17 +289,9 @@ Deve conter as abas:
 
 Deve haver botões para **Nova comparação** e **Baixar relatório HTML**.
 
-Na prévia visual anterior às Semanas 3 e 4:
-
-- as abas internas devem ser clicáveis e trocar o painel visível;
-- cards, números, gráfico ilustrativo, fontes e textos são mockados e devem ser rotulados como demonstração;
-- **Nova comparação** retorna à prévia de comparação;
-- **Baixar relatório HTML** permanece desabilitado ou identificado como indisponível na prévia;
-- nenhum texto mockado pode ser apresentado como resposta do Gemini ou evidência calculada.
-
 #### Direção dos gráficos analíticos finais
 
-O gráfico ilustrativo da prévia não define a qualidade final. Nas Semanas 2 e 4, a investigação deve evoluir para um dashboard analítico mais rico, inspirado na densidade, na hierarquia e na narrativa visual da referência fornecida em 2026-10-07. A identidade marrom permanece obrigatória.
+A investigação usa um dashboard analítico inspirado na densidade, na hierarquia e na narrativa visual da referência fornecida em 2026-10-07. A identidade marrom permanece obrigatória.
 
 A aba **Solo** é uma área prioritária do produto e deve combinar:
 
@@ -954,7 +939,7 @@ Termos proibidos quando descrevem o manejo:
 
 ### 12.7 Fallback
 
-O fallback deve usar os mesmos objetos de evidência e templates locais. Deve gerar:
+A contingência deve usar os mesmos objetos de evidência e regras determinísticas de redação. Deve gerar:
 
 - título;
 - resumo;

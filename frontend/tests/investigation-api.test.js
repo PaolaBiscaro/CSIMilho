@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { ApiError, requestInvestigation } from '../src/api.js'
-import fixture from '../src/mocks/analytics-preview.json'
+import fixture from './fixtures/analytics-result.json'
 
 const request = { dataset_id: 'dataset', target_field_id: 'target', reference_field_id: 'reference', period: 'full_season', question: 'Compare os talhões.' }
 const result = {
@@ -16,9 +16,20 @@ it.each(['gemini', 'deterministic_fallback'])('posts JSON and accepts a complete
   const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => payload })
   vi.stubGlobal('fetch', fetch)
   expect(await requestInvestigation(request)).toBe(payload)
-  expect(fetch).toHaveBeenCalledExactlyOnceWith('/api/investigations', {
+  expect(fetch).toHaveBeenCalledExactlyOnceWith('/api/investigations/stream', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request),
   })
+})
+
+it('falls back to the compatible JSON endpoint when streaming is not available', async () => {
+  const fetch = vi.fn()
+    .mockResolvedValueOnce({ ok: false, status: 404 })
+    .mockResolvedValueOnce({ ok: true, json: async () => result })
+  vi.stubGlobal('fetch', fetch)
+  const onProgress = vi.fn()
+  await expect(requestInvestigation(request, { onProgress })).resolves.toBe(result)
+  expect(fetch.mock.calls.map(([url]) => url)).toEqual(['/api/investigations/stream', '/api/investigations'])
+  expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ stage: 'legacy_request' }))
 })
 
 it.each([404, 422, 503, 500])('handles HTTP %i without exposing a raw server body', async (status) => {
@@ -32,7 +43,7 @@ it.each([404, 422, 503, 500])('handles HTTP %i without exposing a raw server bod
 
 it('handles network failures with a controlled error', async () => {
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('INTERNAL_NETWORK_DETAILS')))
-  await expect(requestInvestigation(request)).rejects.toThrow('comunicar com o backend')
+  await expect(requestInvestigation(request)).rejects.toThrow('comunicar com o serviço')
 })
 
 it.each([null, {}, { ...result, status: 'pending' }, { ...result, generated_by: 'unknown' }, { ...result, report: null }])(
@@ -45,6 +56,25 @@ it.each([null, {}, { ...result, status: 'pending' }, { ...result, generated_by: 
 it('handles a non-JSON response', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => { throw new SyntaxError('HTML_BODY') } }))
   await expect(requestInvestigation(request)).rejects.toThrow('resposta de investigação inválida')
+})
+
+it('delivers real progress events before validating the final streamed result', async () => {
+  const encoder = new TextEncoder()
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode('event: progress\ndata: {"stage":"tool_started","message":"Comparando a evolução do NDVI","tool":"compare_ndvi"}\n\n'))
+      controller.enqueue(encoder.encode(`event: result\ndata: ${JSON.stringify(result)}\n\n`))
+      controller.close()
+    },
+  })
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    ok: true, body, headers: new Headers({ 'content-type': 'text/event-stream; charset=utf-8' }),
+  }))
+  const onProgress = vi.fn()
+  await expect(requestInvestigation(request, { onProgress })).resolves.toEqual(result)
+  expect(onProgress).toHaveBeenCalledExactlyOnceWith({
+    stage: 'tool_started', message: 'Comparando a evolução do NDVI', tool: 'compare_ndvi',
+  })
 })
 
 it.each([

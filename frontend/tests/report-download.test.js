@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, expect, it, vi } from 'vitest'
-import { ApiError, requestReport } from '../src/api.js'
+import { ApiError, requestChatReport } from '../src/api.js'
 import { AppState, resetStateForTests, runInvestigation, setDataset, state, transitionTo } from '../src/state.js'
 import { createInvestigationResult } from '../src/ui/results.js'
+import { investigationEnvelope } from './fixtures/chat-result.js'
 
 const htmlResponse = () => ({ ok: true, headers: new Headers({ 'Content-Type': 'text/html; charset=utf-8' }),
   blob: async () => new Blob(['<!doctype html><html lang="pt-BR"><title>Relatório</title></html>'], { type: 'text/html' }) })
@@ -20,19 +21,19 @@ it('downloads HTML using an encoded ID and a cancellable GET', async () => {
   const fetch = vi.fn().mockResolvedValue(htmlResponse())
   vi.stubGlobal('fetch', fetch)
   const controller = new AbortController()
-  const blob = await requestReport('report/id?', { signal: controller.signal })
-  expect(fetch).toHaveBeenCalledExactlyOnceWith('/api/investigations/report%2Fid%3F/report', { signal: controller.signal })
+  const blob = await requestChatReport('report/id?', { signal: controller.signal })
+  expect(fetch).toHaveBeenCalledExactlyOnceWith('/api/chat/reports/report%2Fid%3F', { signal: controller.signal })
   expect(blob.type).toBe('text/html')
   expect(await blob.text()).toContain('Relatório')
 })
 
 it.each([404, 503])('handles HTTP %i without exposing server details', async (status) => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status, text: async () => 'PRIVATE_SERVER_DETAILS' }))
-  const error = await requestReport('report').catch((caught) => caught)
+  const error = await requestChatReport('report').catch((caught) => caught)
   expect(error).toBeInstanceOf(ApiError)
   expect(error.status).toBe(status)
   expect(error.message).not.toContain('PRIVATE')
-  if (status === 404) expect(error.message).toContain('nova investigação')
+  if (status === 404) expect(error.message).toContain('não está mais disponível')
 })
 
 it.each(['network', 'content-type', 'body'])('handles %s failures with safe messages', async (failure) => {
@@ -40,7 +41,7 @@ it.each(['network', 'content-type', 'body'])('handles %s failures with safe mess
   if (failure === 'content-type') response.headers = new Headers({ 'Content-Type': 'application/json' })
   if (failure === 'body') response.blob = async () => { throw new Error('PRIVATE_BODY') }
   vi.stubGlobal('fetch', failure === 'network' ? vi.fn().mockRejectedValue(new TypeError('PRIVATE_NETWORK')) : vi.fn().mockResolvedValue(response))
-  const error = await requestReport('report').catch((caught) => caught)
+  const error = await requestChatReport('report').catch((caught) => caught)
   expect(error).toBeInstanceOf(ApiError)
   expect(error.message).not.toContain('PRIVATE')
 })
@@ -48,7 +49,7 @@ it.each(['network', 'content-type', 'body'])('handles %s failures with safe mess
 it('preserves abort errors from fetch', async () => {
   const error = new DOMException('Aborted', 'AbortError')
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(error))
-  await expect(requestReport('report')).rejects.toBe(error)
+  await expect(requestChatReport('report')).rejects.toBe(error)
 })
 
 async function render() {
@@ -57,8 +58,7 @@ async function render() {
   transitionTo(AppState.VALIDATING)
   setDataset({ dataset_id: 'dataset-test' })
   transitionTo(AppState.READY)
-  const result = { investigation_id: 'completed-id', generated_by: 'gemini', warnings: [], evidence: [],
-    report: { overview: { headline: 'Resultado', summary: 'Resumo.', evidence_strength: 'weak' }, findings: [], recommendations: [] } }
+  const result = investigationEnvelope()
   await runInvestigation(async () => result)
   const view = createInvestigationResult(vi.fn())
   document.body.append(view)
@@ -82,7 +82,7 @@ it('prevents duplicate downloads and releases the URL while preserving the resul
   resolve(htmlResponse())
   await flush()
   expect(create).toHaveBeenCalledTimes(1)
-  expect(clicks).toEqual([{ href: 'blob:report', download: 'farmlab-completed-id.html' }])
+  expect(clicks).toEqual([{ href: 'blob:report', download: `farmlab-${result.turn_id}.html` }])
   expect(document.body.querySelector('a[download]')).toBeNull()
   expect(button.disabled).toBe(false)
   expect(view.querySelector('[role="status"]').textContent).toContain('offline')
@@ -101,7 +101,7 @@ it('allows retry after a failure without losing the completed investigation', as
   const { view, button, result, clicks } = await render()
   button.click()
   await flush()
-  expect(view.querySelector('[role="alert"]').textContent).toContain('nova investigação')
+  expect(view.querySelector('[role="alert"]').textContent).toContain('não está mais disponível')
   expect(button.disabled).toBe(false)
   expect(state.investigation).toBe(result)
   button.click()

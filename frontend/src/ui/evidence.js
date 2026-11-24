@@ -10,7 +10,9 @@ function addCounts(card, evidence) {
   const list = element('dl', 'evidence-counts')
   const items = [['Observações', evidence.observation_count]]
   if ('paired_dates' in evidence) items.push(['Datas pareadas', evidence.paired_dates])
-  if ('sample_count' in evidence) items.push(['Amostras no dataset', evidence.sample_count])
+  if ('sample_count' in evidence) items.push(['Amostras no pacote', evidence.sample_count])
+  if ('observations' in evidence) items.push(['Datas no talhão', evidence.observations])
+  if (evidence.rows) items.push(['Linhas válidas', evidence.rows.valid], ['Linhas descartadas', evidence.rows.discarded])
   for (const [key, label] of [['target_rows', 'Alvo'], ['reference_rows', 'Referência']]) {
     if (evidence[key]) items.push([`${label} · linhas válidas`, evidence[key].valid], [`${label} · linhas descartadas`, evidence[key].discarded])
   }
@@ -23,10 +25,11 @@ function addCounts(card, evidence) {
 }
 
 function soilValues(card, evidence) {
-  card.append(element('p', 'soil-summary', 'Escopo geral do dataset: sem vínculo documentado com talhão, coordenada, data ou profundidade. Conjunto 1 e Conjunto 2 não representam alvo e referência.'))
+  card.append(element('p', 'soil-summary', 'Amostras do pacote importado; Conjunto 1 e Conjunto 2 não representam alvo e referência.'))
   if (evidence.measurement_group) {
     const group = evidence.measurement_group === 'group_1' ? 'Conjunto 1' : 'Conjunto 2'
     card.append(element('p', 'badge', group))
+    card.append(element('p', 'soil-quality', `Completude do recorte: ${evidence.completeness_percent == null ? 'Indisponível' : `${formatValue(evidence.completeness_percent)}%`} · ${formatValue(evidence.valid_values)} de ${formatValue(evidence.expected_values)} valores nas métricas retornadas.`))
     if (!evidence.metrics.length) card.append(element('p', 'status-message', 'Nenhuma métrica descritiva disponível.'))
     else card.append(table(`Estatísticas de solo · ${group} · ${evidence.evidence_id}`,
       ['Métrica', 'Unidade', 'Válidas', 'Ausentes', 'Média', 'Mín.', 'Q1', 'Mediana', 'Q3', 'Máx.', 'Fontes'],
@@ -48,6 +51,29 @@ function soilValues(card, evidence) {
   }
 }
 
+function singleFieldValues(card, evidence, fieldLabel) {
+  card.append(element('p', 'card-description', `Talhão: ${fieldLabel(evidence.field_id)}`))
+  if (Array.isArray(evidence.series)) {
+    card.append(table(`Trajetória NDVI · ${evidence.evidence_id}`, ['Métrica', 'Valor', 'Unidade'], [
+      ['Média', formatValue(evidence.mean_ndvi), unit(evidence.unit)],
+      ['Mínimo', formatValue(evidence.min_ndvi), unit(evidence.unit)],
+      ['Máximo', formatValue(evidence.max_ndvi), unit(evidence.unit)],
+      ['Mudança total', formatValue(evidence.total_change), unit(evidence.unit)],
+      ['Mudanças bruscas', formatValue(evidence.abrupt_changes?.length), 'ocorrências'],
+    ]))
+  } else if ('population_per_ha' in evidence) {
+    card.append(table(`População · ${evidence.evidence_id}`, ['Métrica', 'Valor', 'Unidade'],
+      [['População ponderada', formatValue(evidence.population_per_ha), unit(evidence.unit)]]))
+  } else if ('compliance_percent' in evidence) {
+    card.append(table(`Aplicação · ${evidence.evidence_id}`, ['Métrica', 'Valor', 'Unidade'], [
+      ['Operação', evidence.operation, '—'],
+      ['Conformidade', formatValue(evidence.compliance_percent), '%'],
+      ['Dose aplicada', formatValue(evidence.applied_dose), evidence.dose_unit],
+      ['Dose configurada', formatValue(evidence.configured_dose), evidence.dose_unit],
+    ]))
+  }
+}
+
 export function createEvidencePanel(evidence, fields = []) {
   const panel = element('section', 'evidence-panel')
   panel.append(element('h2', '', 'Evidências'), element('p', 'card-description',
@@ -66,6 +92,7 @@ export function createEvidencePanel(evidence, fields = []) {
     card.dataset.evidenceId = item.evidence_id
     card.append(element('h3', '', item.evidence_id))
     if (item.scope === 'dataset') soilValues(card, item)
+    else if (item.field_id) singleFieldValues(card, item, fieldLabel)
     else {
       card.append(element('p', 'card-description', `Alvo: ${fieldLabel(item.target_field_id)} · Referência: ${fieldLabel(item.reference_field_id)}`),
         table(`Valores consolidados · ${item.evidence_id}`, ['Métrica', 'Alvo', 'Referência', 'Diferença', 'Unidade'],

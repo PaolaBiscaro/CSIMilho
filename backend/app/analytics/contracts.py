@@ -35,6 +35,29 @@ class ComparisonArgs(StrictModel):
     period: Period = Field(default="full_season", description="Período selecionado: full_season usa todos os dados disponíveis; start/end limita às datas inclusivas. Preservar a seleção do harness.")
 
 
+class SingleFieldArgs(StrictModel):
+    dataset_id: UUID = Field(description="UUID do dataset validado da sessão, fornecido pelo harness.")
+    field_id: NonEmptyText = Field(description="ID textual normalizado do único talhão selecionado para análise.")
+    period: Period = Field(default="full_season", description="Período selecionado para a análise temporal.")
+
+
+class SingleApplicationArgs(SingleFieldArgs):
+    operation: NonEmptyText = Field(default="CALAGEM", description="Operação disponível para o talhão.")
+
+
+class OperationNdviArgs(SingleFieldArgs):
+    operation: NonEmptyText | None = Field(
+        default=None,
+        description="Operação opcional. Null usa todas as operações documentadas do talhão.",
+    )
+    max_window_days: int = Field(
+        default=45,
+        ge=1,
+        le=120,
+        description="Distância máxima entre a operação e cada observação de NDVI anterior/posterior.",
+    )
+
+
 class ApplicationArgs(ComparisonArgs):
     operation: NonEmptyText = Field(default="CALAGEM", description="Nome da operação disponível no dataset; CALAGEM é a operação padrão prioritária.")
 
@@ -73,6 +96,99 @@ class NdviEvidence(FieldEvidence):
     positive_dates: int
     equal_dates: int
     series: list[NdviPoint]
+
+
+class FieldNdviPoint(StrictModel):
+    date: date
+    ndvi: FiniteValue
+    change_from_previous: FiniteValue | None
+
+
+class AbruptNdviChange(StrictModel):
+    previous_date: date
+    date: date
+    change: FiniteValue
+    direction: Literal["increase", "decrease"]
+
+
+class FieldNdviEvidence(Evidence):
+    field_id: NonEmptyText
+    period: Period
+    observations: int = Field(ge=1)
+    mean_ndvi: FiniteValue
+    min_ndvi: FiniteValue
+    max_ndvi: FiniteValue
+    first_ndvi: FiniteValue
+    last_ndvi: FiniteValue
+    total_change: FiniteValue
+    abrupt_change_threshold: FiniteValue
+    abrupt_changes: list[AbruptNdviChange]
+    series: list[FieldNdviPoint]
+    warnings: list[str] = Field(default_factory=list)
+
+
+class NdviRobustChange(StrictModel):
+    previous_date: date
+    date: date
+    change: FiniteValue
+    deviation_from_typical_change: FiniteValue
+    robust_score: FiniteValue | None
+    direction: Literal["increase", "decrease"]
+
+
+class NdviChangeEvidence(Evidence):
+    field_id: NonEmptyText
+    period: Period
+    observations: int = Field(ge=5)
+    adjacent_changes: int = Field(ge=4)
+    typical_change: FiniteValue
+    change_mad: FiniteValue
+    practical_threshold: FiniteValue
+    robust_score_threshold: FiniteValue
+    changes: list[NdviRobustChange]
+    warnings: list[NonEmptyText] = Field(default_factory=list)
+
+
+class PairedNdviTestEvidence(FieldEvidence):
+    method_id: Literal["paired_sign_test"] = "paired_sign_test"
+    inference_scope: Literal["exploratory"] = "exploratory"
+    pair_count: int = Field(ge=5)
+    nonzero_pairs: int = Field(ge=5)
+    positive_pairs: int = Field(ge=0)
+    negative_pairs: int = Field(ge=0)
+    target_median: FiniteValue
+    reference_median: FiniteValue
+    median_difference: FiniteValue
+    confidence_level: FiniteValue = Field(gt=0, lt=1)
+    median_ci_low: FiniteValue | None
+    median_ci_high: FiniteValue | None
+    p_value: FiniteValue = Field(ge=0, le=1)
+    rank_biserial: FiniteValue = Field(ge=-1, le=1)
+    alpha: FiniteValue = Field(gt=0, lt=1)
+    significant: bool
+    warnings: list[NonEmptyText] = Field(default_factory=list)
+
+
+class OperationNdviLink(StrictModel):
+    operation: NonEmptyText
+    operation_date: date
+    before_date: date
+    after_date: date
+    days_before: int = Field(ge=0)
+    days_after: int = Field(ge=0)
+    before_ndvi: FiniteValue
+    after_ndvi: FiniteValue
+    ndvi_change: FiniteValue
+
+
+class OperationNdviEvidence(Evidence):
+    field_id: NonEmptyText
+    period: Period
+    requested_operation: NonEmptyText | None
+    max_window_days: int = Field(ge=1, le=120)
+    eligible_operations: int = Field(ge=1)
+    links: list[OperationNdviLink] = Field(min_length=1)
+    warnings: list[NonEmptyText] = Field(default_factory=list)
 
 
 class InitialEvidence(FieldEvidence):
@@ -115,6 +231,14 @@ class PopulationEvidence(FieldEvidence):
     reference_rows: RowCounts
 
 
+class FieldPopulationEvidence(Evidence):
+    field_id: NonEmptyText
+    period: Period
+    population_per_ha: FiniteValue
+    rows: RowCounts
+    warnings: list[str] = Field(default_factory=list)
+
+
 class ApplicationEvidence(FieldEvidence):
     operation: str
     target_compliance_percent: FiniteValue
@@ -126,6 +250,18 @@ class ApplicationEvidence(FieldEvidence):
     target_rows: RowCounts
     reference_rows: RowCounts
     dose_unit: Literal["kg/ha"] = "kg/ha"
+
+
+class FieldApplicationEvidence(Evidence):
+    field_id: NonEmptyText
+    period: Period
+    operation: NonEmptyText
+    compliance_percent: FiniteValue
+    applied_dose: FiniteValue
+    configured_dose: FiniteValue
+    rows: RowCounts
+    dose_unit: Literal["kg/ha"] = "kg/ha"
+    warnings: list[str] = Field(default_factory=list)
 
 
 class SoilMetric(StrictModel):
@@ -200,3 +336,29 @@ class SoilGroupsEvidence(SoilEvidence):
     comparison: Literal["group_2_minus_group_1"] = "group_2_minus_group_1"
     sample_count: int
     metrics: list[SoilPairedMetric]
+
+
+class SoilMetricTest(StrictModel):
+    name: SoilMetricName
+    family: str
+    status: Literal["executed", "insufficient_data"]
+    pair_count: int = Field(ge=0)
+    nonzero_pairs: int = Field(ge=0)
+    median_delta: FiniteValue | None
+    confidence_level: FiniteValue | None = Field(default=None, gt=0, lt=1)
+    median_ci_low: FiniteValue | None = None
+    median_ci_high: FiniteValue | None = None
+    raw_p_value: FiniteValue | None = Field(default=None, ge=0, le=1)
+    adjusted_p_value: FiniteValue | None = Field(default=None, ge=0, le=1)
+    rank_biserial: FiniteValue | None = Field(default=None, ge=-1, le=1)
+    significant_after_holm: bool | None = None
+    explanation: NonEmptyText
+
+
+class SoilStatisticalEvidence(SoilEvidence):
+    comparison: Literal["group_2_minus_group_1"] = "group_2_minus_group_1"
+    method_id: Literal["paired_sign_test_holm"] = "paired_sign_test_holm"
+    alpha: FiniteValue = Field(gt=0, lt=1)
+    requested_metrics: list[SoilMetricName]
+    executed_tests: int = Field(ge=1)
+    tests: list[SoilMetricTest] = Field(min_length=1)

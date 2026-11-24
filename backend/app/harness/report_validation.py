@@ -13,8 +13,10 @@ import unicodedata
 
 from pydantic import TypeAdapter
 
+from app.analytics.capabilities import capability_gap_for_code
 from app.analytics.contracts import (
     ApplicationEvidence, ComparisonEvidence, InitialEvidence, NdviEvidence,
+    FieldApplicationEvidence, FieldNdviEvidence, FieldPopulationEvidence,
     PopulationEvidence, SoilGroupsEvidence, SoilSummaryEvidence,
 )
 from app.data.contracts import ValidationIssue
@@ -34,14 +36,19 @@ def _plain(text: str) -> str:
 
 def required_limitations(evidence: list[AnalyticalEvidence], warnings: list[ValidationIssue] = ()) -> list[ReportLimitation]:
     """Stable rules copied verbatim into the report, without interpreting LLM prose."""
+    comparison_mode = any(isinstance(item, (ComparisonEvidence, NdviEvidence, InitialEvidence,
+                                             PopulationEvidence, ApplicationEvidence)) for item in evidence)
     rules = [
-        ("observational_comparison", "Comparação observacional",
-         "Os dados são observacionais e não permitem concluir causalidade sobre o manejo."),
+        (("observational_comparison", "Comparação observacional",
+          "Os dados são observacionais e não permitem concluir causalidade sobre o manejo.")
+         if comparison_mode else
+         ("observational_single_field", "Análise observacional do talhão",
+          "A análise descreve a trajetória e os registros do talhão, mas não identifica a origem das mudanças observadas.")),
         ("no_reliable_yield", "Produtividade não medida",
          "Não há produtividade confiável nas evidências; diferenças de NDVI não demonstram ganho de produtividade ou lucro."),
     ]
     initial = [item for item in evidence if isinstance(item, InitialEvidence)]
-    if not initial:
+    if comparison_mode and not initial:
         rules.append(("initial_condition_not_checked", "Condição inicial não verificada",
                       "A condição anterior ao plantio não foi verificada nesta investigação; diferenças prévias não podem ser descartadas."))
     elif any(not item.available for item in initial):
@@ -56,6 +63,9 @@ def required_limitations(evidence: list[AnalyticalEvidence], warnings: list[Vali
     if any(isinstance(item, (ComparisonEvidence, NdviEvidence)) and item.paired_dates < 5 for item in evidence):
         rules.append(("few_paired_dates", "Poucas datas pareadas",
                       "Há poucas datas de NDVI pareadas; a cobertura temporal limita a força da comparação."))
+    if any(isinstance(item, FieldNdviEvidence) and item.observations < 5 for item in evidence):
+        rules.append(("few_field_dates", "Poucas datas no talhão",
+                      "Há poucas datas de NDVI no talhão; a cobertura temporal limita a identificação de padrões e mudanças."))
     soil = [item for item in evidence if isinstance(item, (SoilSummaryEvidence, SoilGroupsEvidence))]
     if soil:
         rules.extend([
@@ -73,6 +83,10 @@ def required_limitations(evidence: list[AnalyticalEvidence], warnings: list[Vali
     if any(item.code != "deterministic_fallback" for item in warnings) or any(item.warnings for item in evidence):
         rules.append(("data_quality_warnings", "Avisos de qualidade",
                       "Há avisos de qualidade nos dados ou nas análises; consulte os avisos acumulados e considere as lacunas na interpretação."))
+    for warning in warnings:
+        gap = capability_gap_for_code(warning.code)
+        if gap is not None and not any(rule_id == gap.code for rule_id, _, _ in rules):
+            rules.append((gap.code, gap.title, gap.explanation))
     return [ReportLimitation(rule_id=key, title=title, explanation=text) for key, title, text in rules]
 
 
@@ -120,6 +134,27 @@ def _facts(item: AnalyticalEvidence) -> list[_Fact]:
         add(item.reference_population_per_ha, "plants/ha", "reference", "population")
         add(item.difference, "plants/ha", "difference", "population")
         add(item.difference_percent, "%", "difference", "population")
+    elif isinstance(item, FieldNdviEvidence):
+        add(item.observations, "count", kind="observations", integer=True)
+        add(item.mean_ndvi, "ndvi", "field", "ndvi", "mean")
+        add(item.min_ndvi, "ndvi", "field", "ndvi", "min")
+        add(item.max_ndvi, "ndvi", "field", "ndvi", "max")
+        add(item.first_ndvi, "ndvi", "field", "ndvi", "first")
+        add(item.last_ndvi, "ndvi", "field", "ndvi", "last")
+        add(item.total_change, "ndvi", "difference", "ndvi", "total_change")
+        add(item.abrupt_change_threshold, "ndvi", metric="ndvi", kind="threshold")
+        add(len(item.abrupt_changes), "count", kind="abrupt_changes", integer=True)
+        for point in item.series:
+            add(point.ndvi, "ndvi", "field", "ndvi", on_date=point.date)
+            add(point.change_from_previous, "ndvi", "difference", "ndvi", "change", on_date=point.date)
+        for change in item.abrupt_changes:
+            add(change.change, "ndvi", "difference", "ndvi", "change", on_date=change.date)
+    elif isinstance(item, FieldPopulationEvidence):
+        add(item.population_per_ha, "plants/ha", "field", "population")
+    elif isinstance(item, FieldApplicationEvidence):
+        add(item.compliance_percent, "%", "field", "compliance")
+        add(item.applied_dose, "kg/ha", "field", "dose", "applied")
+        add(item.configured_dose, "kg/ha", "field", "dose", "configured")
     elif isinstance(item, ApplicationEvidence):
         add(item.target_compliance_percent, "%", "target", "compliance")
         add(item.reference_compliance_percent, "%", "reference", "compliance")
@@ -157,6 +192,9 @@ def _facts(item: AnalyticalEvidence) -> list[_Fact]:
             rows = getattr(item, f"{role}_rows")
             add(rows.valid, "count", role, kind="rows", integer=True)
             add(rows.discarded, "count", role, kind="rows", integer=True)
+    elif isinstance(item, (FieldPopulationEvidence, FieldApplicationEvidence)):
+        add(item.rows.valid, "count", "field", kind="rows", integer=True)
+        add(item.rows.discarded, "count", "field", kind="rows", integer=True)
     return facts
 
 
@@ -168,7 +206,7 @@ _UNIT = re.compile(r"^\s*(%|p\.?\s*p\.?\b|pontos? percentua(?:l|is)\b|por cento\
                    r"(?:mg|g|cmolc|cmol|mmolc)\s*/\s*(?:kg|dm[³3]|l)\b|"
                    r"[a-zµ]+[³²23]?\s*/\s*[a-zµ]+[³²23]?\b|ppm\b|ppb\b|"
                    r"t\s*/\s*ha\b|kg\b|g\b|ha\b|cm\b|mm\b|m\b)")
-_COUNT = re.compile(r"^\s*(datas?|pares?|observacoes|registros?|linhas?|amostras?|valores?|criterios?|pontos?)\b")
+_COUNT = re.compile(r"^\s*(datas?|pares?|observacoes|registros?|linhas?|amostras?|valores?|criterios?|pontos?|mudancas?)\b")
 _SPELLED = re.compile(r"\b(?:zero|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|"
                       r"treze|catorze|quatorze|quinze|dezesseis|dezessete|dezoito|dezenove|vinte|trinta|"
                       r"quarenta|cinquenta|sessenta|setenta|oitenta|noventa|cem|cento|mil)\s+"
@@ -212,7 +250,7 @@ def _canonical_unit(text: str) -> str:
 def _qualify(facts: list[_Fact], prefix: str, suffix: str, number_unit: str | None) -> list[_Fact]:
     """Use nearby explicit roles/metrics, never accept a number from other metrics."""
     roles = [(m.start(), role) for role, pattern in (
-        ("target", r"\balvo\b"), ("reference", r"\breferencia\b"),
+        ("target", r"\balvo\b"), ("reference", r"\breferencia\b"), ("field", r"\btalhao\b"),
         ("difference", r"\b(?:gap|delta|diferenca)\b"),
         ("group_1", r"\bconjunto 1\b"), ("group_2", r"\bconjunto 2\b"),
     ) for m in re.finditer(pattern, prefix)]
@@ -231,6 +269,7 @@ def _qualify(facts: list[_Fact], prefix: str, suffix: str, number_unit: str | No
             ("values", r"^\s*valores?\b"),
             ("score", r"^\s*(?:criterios?|pontos?)\b"),
             ("observations", r"^\s*observacoes\b"),
+            ("abrupt_changes", r"^\s*mudancas?\b"),
         ) if re.search(pattern, suffix)), None)
         if count_kind:
             facts = [fact for fact in facts if fact.kind == count_kind or
@@ -349,6 +388,10 @@ def validate_report_evidence(report: InvestigationReport, evidence: list[Analyti
                 item = by_id[key]
                 if isinstance(item, NdviEvidence):
                     dates.update(point.date for point in item.series)
+                if isinstance(item, FieldNdviEvidence):
+                    dates.update(point.date for point in item.series)
+                    dates.update(change.previous_date for change in item.abrupt_changes)
+                    dates.update(change.date for change in item.abrupt_changes)
                 if isinstance(item, InitialEvidence) and item.cutoff_date:
                     dates.add(item.cutoff_date)
                 if hasattr(item, "period") and not isinstance(item.period, str):
@@ -380,7 +423,7 @@ def validate_report_evidence(report: InvestigationReport, evidence: list[Analyti
             # Canonical field IDs are labels only when explicitly introduced as such.
             for key in scope:
                 item = by_id[key]
-                for attr in ("target_field_id", "reference_field_id"):
+                for attr in ("target_field_id", "reference_field_id", "field_id"):
                     field_id = getattr(item, attr, None)
                     if field_id:
                         plain = re.sub(r"(?<=talhao )" + re.escape(field_id) + r"\b", lambda m: " " * len(m[0]), plain)
@@ -416,6 +459,8 @@ def validate_report_evidence(report: InvestigationReport, evidence: list[Analyti
             fields = ("title", "explanation") if section == "findings" else ("action", "reason")
             for field in fields:
                 check_text(getattr(item, field), f"{section}[{index}].{field}", item.evidence_ids)
+            if section == "recommendations" and item.suggested_question:
+                check_text(item.suggested_question, f"{section}[{index}].suggested_question", item.evidence_ids)
     for index, item in enumerate(report.limitations):
         check_text(item.title, f"limitations[{index}].title")
         if set(_CITATION.findall(item.explanation)) - by_id.keys():

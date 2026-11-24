@@ -15,14 +15,22 @@ from tests.test_gemini_client import make_client
 
 
 COMPARISON_FIELDS = {"dataset_id", "target_field_id", "reference_field_id", "period"}
+SINGLE_FIELDS = {"dataset_id", "field_id", "period"}
 PUBLIC_FIELDS = {
     "validate_comparison": COMPARISON_FIELDS,
     "compare_ndvi": COMPARISON_FIELDS,
+    "test_paired_ndvi_difference": COMPARISON_FIELDS,
+    "analyze_field_ndvi": SINGLE_FIELDS,
+    "detect_field_ndvi_changes": SINGLE_FIELDS,
+    "associate_field_operations_ndvi": SINGLE_FIELDS | {"operation", "max_window_days"},
+    "summarize_field_population": SINGLE_FIELDS,
+    "summarize_field_application": SINGLE_FIELDS | {"operation"},
     "check_initial_condition": COMPARISON_FIELDS,
     "compare_population": COMPARISON_FIELDS,
     "application_compliance": COMPARISON_FIELDS | {"operation"},
     "summarize_soil_analysis": {"dataset_id", "measurement_group", "metrics"},
     "compare_soil_measurement_groups": {"dataset_id", "metrics"},
+    "test_soil_measurement_groups": {"dataset_id", "metrics"},
 }
 
 
@@ -39,7 +47,12 @@ def test_declarations_expose_only_public_inputs_and_preserve_contracts(name):
     assert schema["additionalProperties"] is False
     assert set(schema["properties"]) == PUBLIC_FIELDS[name]
     assert all(item["description"] for item in schema["properties"].values())
-    required = {"dataset_id"} if "soil" in name else COMPARISON_FIELDS - {"period"}
+    if "soil" in name:
+        required = {"dataset_id"}
+    elif PUBLIC_FIELDS[name] >= COMPARISON_FIELDS:
+        required = COMPARISON_FIELDS - {"period"}
+    else:
+        required = {"dataset_id", "field_id"}
     assert set(schema["required"]) == required
     wire = json.loads(declaration.model_dump_json(exclude_none=True, by_alias=True))
     assert set(wire) == {"name", "description", "parametersJsonSchema"}
@@ -61,7 +74,7 @@ def test_nested_period_and_soil_filters_keep_constraints_and_defaults():
     assert all(prop["format"] == "date" for prop in dates["properties"].values())
     assert comparison["properties"]["dataset_id"]["format"] == "uuid"
     assert schemas["application_compliance"]["properties"]["operation"]["default"] == "CALAGEM"
-    for name in ("summarize_soil_analysis", "compare_soil_measurement_groups"):
+    for name in ("summarize_soil_analysis", "compare_soil_measurement_groups", "test_soil_measurement_groups"):
         metrics = schemas[name]["properties"]["metrics"]
         assert metrics["default"] is None
         choices, nullable = metrics["anyOf"]
@@ -78,7 +91,7 @@ def test_declarations_need_no_key_client_or_local_execution(monkeypatch):
     executor = Mock(side_effect=AssertionError("must not run a tool"))
     monkeypatch.setattr(genai, "Client", client)
     monkeypatch.setattr(registry, "execute_tool", executor)
-    assert len(registry.build_gemini_tool().function_declarations) == 7
+    assert len(registry.build_gemini_tool().function_declarations) == len(PUBLIC_FIELDS)
     client.assert_not_called()
     executor.assert_not_called()
 
@@ -91,7 +104,7 @@ def test_caller_mutation_cannot_affect_registry_or_next_declarations():
     ndvi.parameters_json_schema["properties"]["path"] = {"type": "string"}
     first.function_declarations.clear()
     second = registry.build_gemini_tool()
-    assert len(second.function_declarations) == 7
+    assert len(second.function_declarations) == len(PUBLIC_FIELDS)
     assert next(item for item in second.function_declarations if item.name == "compare_ndvi").parameters_json_schema == original
     assert registry.TOOLS["compare_ndvi"].parameters.model_json_schema() == original
 
@@ -99,8 +112,11 @@ def test_caller_mutation_cannot_affect_registry_or_next_declarations():
 @pytest.mark.parametrize("name", PUBLIC_FIELDS)
 def test_official_sdk_sends_all_declarations_and_returns_calls_without_execution(make_client, monkeypatch, name):
     arguments = {"dataset_id": "00000000-0000-4000-8000-000000000001"}
-    if "soil" not in name:
+    if PUBLIC_FIELDS[name] >= COMPARISON_FIELDS:
         arguments.update(target_field_id="artificial-target", reference_field_id="artificial-reference",
+                         period={"start": "2026-01-01", "end": "2026-02-01"})
+    elif "soil" not in name:
+        arguments.update(field_id="artificial-target",
                          period={"start": "2026-01-01", "end": "2026-02-01"})
     else:
         arguments["metrics"] = ["PHCACL2"]
@@ -124,7 +140,7 @@ def test_official_sdk_sends_all_declarations_and_returns_calls_without_execution
     executor.assert_not_called()
     payload = json.loads(requests[0].content)
     declared = payload["tools"][0]["functionDeclarations"]
-    assert len(declared) == 7
+    assert len(declared) == len(PUBLIC_FIELDS)
     assert {item["name"] for item in declared} == set(PUBLIC_FIELDS)
     for item in declared:
         # The SDK HTTP converter uses snake_case for this JSON Schema field.

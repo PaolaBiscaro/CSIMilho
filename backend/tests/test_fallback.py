@@ -45,6 +45,18 @@ def test_no_key_no_provider_no_tool_reruns_and_correct_origin(facts, monkeypatch
     assert len(result.report.findings) == len(evidence)
 
 
+def test_simple_overview_distinguishes_missing_tooling_from_missing_data(facts):
+    warnings = [
+        ValidationIssue(code="analysis_missing_tooling_requested_hypothesis_method", message="UNTRUSTED"),
+        ValidationIssue(code="analysis_missing_data_compare_ndvi", message="UNTRUSTED"),
+    ]
+    result = build_fallback_report([facts["validate_comparison"]], warnings)
+    summary = result.report.overview.summary
+    assert "ferramenta analítica necessária ainda não está implementada" in summary
+    assert "dados necessários estão ausentes" in summary
+    assert "UNTRUSTED" not in result.report.model_dump_json()
+
+
 def test_origin_cannot_be_overridden(facts):
     result = build_fallback_report(list(facts.values())).model_dump()
     with pytest.raises(ValidationError):
@@ -61,8 +73,9 @@ def test_sorted_findings_and_metrics_do_not_depend_on_input_order(facts):
     assert build_fallback_report(shuffled) == expected
     ids = [item.evidence_ids[0] for item in expected.report.findings]
     assert ids == [facts[key].evidence_id for key in (
-        "validate_comparison", "check_initial_condition", "summarize_soil_analysis",
-        "compare_soil_measurement_groups", "compare_ndvi", "application_compliance", "compare_population",
+            "validate_comparison", "check_initial_condition", "compare_ndvi",
+            "application_compliance", "compare_population", "summarize_soil_analysis",
+            "compare_soil_measurement_groups",
     )]
 
 
@@ -126,7 +139,7 @@ def test_partial_evidence_never_invents_missing_findings(facts, missing):
 
 
 @pytest.mark.parametrize("mutation,code", [
-    ("empty", "comparison_required"), ("no_comparison", "comparison_required"),
+    ("empty", "scope_evidence_required"), ("no_comparison", "scope_evidence_required"),
     ("blocked", "invalid_comparison"), ("duplicate", "invalid_fallback_input"),
     ("pair", "invalid_fallback_input"), ("period", "invalid_fallback_input"),
     ("nan", "invalid_fallback_input"), ("initial", "invalid_fallback_input"),
@@ -184,7 +197,7 @@ def test_rounding_preserves_small_nonzero_values_sign_and_units(facts, value):
     if value != 0:
         assert "gap médio: 0." not in finding.explanation
     if value < 0:
-        assert "gap médio: -" in finding.explanation
+        assert "Gap de NDVI (alvo menos referência): -" in finding.explanation
 
 
 def test_unknown_soil_values_are_not_zero_and_missing_analyses_are_limited(facts):
@@ -193,7 +206,7 @@ def test_unknown_soil_values_are_not_zero_and_missing_analyses_are_limited(facts
     soil.metrics[0].valid_n = 0
     result = build_fallback_report([facts["validate_comparison"], soil])
     text = result.report.findings[-1].explanation
-    assert "resultado indisponível" in text
+    assert "Sem unidades documentadas" in text
     rules = {rule.rule_id for rule in result.report.limitations}
     assert {"soil_units_unknown", "soil_dataset_scope", "soil_group_meaning", "soil_agronomic_reference"} <= rules
 
@@ -241,9 +254,8 @@ def test_real_analyses_in_reverse_direction_keep_target_reference_and_sign(conte
     evidence = [registry.execute_tool(name, arguments, store=store) for name in ("validate_comparison", "compare_ndvi")]
     result = build_fallback_report(evidence)
     finding = result.report.findings[-1]
-    assert "NDVI médio do alvo: 0,5" in finding.explanation
-    assert "NDVI médio da referência: 0,4" in finding.explanation
-    assert "gap médio: 0,1." in finding.explanation
+    assert "alvo apresentou NDVI médio maior que a referência" in finding.explanation
+    assert "Gap de NDVI (alvo menos referência): 0,1." in finding.explanation
 
 
 def test_provider_notice_is_not_a_quality_warning_but_quality_notices_remain(facts):

@@ -214,23 +214,8 @@ def test_analytics_leave_normalized_dataset_unchanged(analytical_dataset):
     pd.testing.assert_frame_equal(analytical_dataset.ndvi_observations, before)
 
 
-def test_frontend_local_fixture_matches_typed_backend_results(analytical_dataset):
-    import json
+def test_frontend_has_no_local_analytics_preview_fixture():
     from pathlib import Path
-    from app.analytics.contracts import (ComparisonEvidence, NdviEvidence, InitialEvidence,
-        PopulationEvidence, ApplicationEvidence, SoilSummaryEvidence, SoilGroupsEvidence)
-    fixture = json.loads((Path(__file__).parents[2] / 'frontend/src/mocks/analytics-preview.json').read_text(encoding='utf-8'))
-    models = dict(validation=ComparisonEvidence, ndvi=NdviEvidence, initial=InitialEvidence,
-                  population=PopulationEvidence, application=ApplicationEvidence)
-    for results in fixture['comparisons'].values():
-        for name, model in models.items():
-            model.model_validate(results[name])
-    SoilSummaryEvidence.model_validate(fixture['soil_summary'])
-    SoilSummaryEvidence.model_validate(fixture['soil_summary_2'])
-    SoilGroupsEvidence.model_validate(fixture['soil_groups'])
-    for key, function in [('validation', validate_comparison), ('ndvi', compare_ndvi),
-                          ('initial', check_initial_condition), ('population', compare_population),
-                          ('application', application_compliance)]:
-        assert fixture['comparisons']['103144:103145'][key] == function(analytical_dataset, *PAIR).model_dump(mode='json')
-    assert fixture['soil_summary'] == summarize_soil_analysis(analytical_dataset).model_dump(mode='json')
-    assert fixture['soil_groups'] == compare_soil_measurement_groups(analytical_dataset).model_dump(mode='json')
+
+    preview = Path(__file__).parents[2] / "frontend/src/mocks/analytics-preview.json"
+    assert not preview.exists(), "A interface não deve voltar a usar dados locais de prévia."

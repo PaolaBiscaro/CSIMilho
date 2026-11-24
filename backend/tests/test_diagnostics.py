@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app.analytics.common import AnalysisUnavailableError
+from app.analytics.contracts import ComparisonArgs, SingleFieldArgs
 from app.analytics.evidence import EvidenceIdGenerator
 from app.api.datasets import _process_package
 from app.config import get_settings
@@ -21,7 +22,13 @@ def arguments(analytical_dataset):
 
 
 def test_registry_is_closed_typed_and_versioned():
-    assert set(TOOLS) == {"validate_comparison", "compare_ndvi", "check_initial_condition", "compare_population", "application_compliance", "summarize_soil_analysis", "compare_soil_measurement_groups"}
+    assert set(TOOLS) == {
+        "validate_comparison", "compare_ndvi", "test_paired_ndvi_difference",
+        "analyze_field_ndvi", "detect_field_ndvi_changes", "associate_field_operations_ndvi",
+        "summarize_field_population", "summarize_field_application", "check_initial_condition",
+        "compare_population", "application_compliance", "summarize_soil_analysis",
+        "compare_soil_measurement_groups", "test_soil_measurement_groups",
+    }
     for tool in TOOLS.values():
         assert tool.version == "1.0.0" and tool.description
         schema = tool.parameters.model_json_schema()
@@ -33,11 +40,25 @@ def test_registry_is_closed_typed_and_versioned():
         TOOLS["extra"] = None
 
 
-@pytest.mark.parametrize("name", list(TOOLS))
+@pytest.mark.parametrize(
+    "name",
+    [name for name in TOOLS if name not in {
+        "associate_field_operations_ndvi", "test_soil_measurement_groups",
+    }],
+)
 def test_each_tool_runs_locally_through_diagnostics(arguments, name):
-    if "soil" in name:
-        arguments = dict(dataset_id=arguments["dataset_id"])
-    response = TestClient(app).post("/api/diagnostics/tools", json=dict(tool=name, arguments=arguments))
+    parameter_model = TOOLS[name].parameters
+    if issubclass(parameter_model, ComparisonArgs):
+        scoped_arguments = arguments
+    elif issubclass(parameter_model, SingleFieldArgs):
+        scoped_arguments = {
+            "dataset_id": arguments["dataset_id"], "field_id": arguments["target_field_id"],
+        }
+    else:
+        scoped_arguments = {"dataset_id": arguments["dataset_id"]}
+    response = TestClient(app).post(
+        "/api/diagnostics/tools", json=dict(tool=name, arguments=scoped_arguments)
+    )
     assert response.status_code == 200, response.text
     assert response.json()["evidence_id"].startswith("EV-")
     assert response.json()["source_files"]
